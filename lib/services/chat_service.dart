@@ -612,7 +612,81 @@ class ChatService {
           'text': message,
           'senderEmail': currentUser.email,
           'timestamp': FieldValue.serverTimestamp(),
+          'reactions': const <String>[],
         });
+  }
+
+  /// Toggles a reaction on a direct message. Mirrors
+  /// [toggleMessageReaction]; reactions are 'emoji::email' strings so a
+  /// toggle is one arrayUnion or arrayRemove.
+  Future<void> toggleDirectMessageReaction(
+    String threadId,
+    String messageId,
+    String emoji,
+  ) async {
+    final currentUser = _auth.currentUser;
+    if (currentUser == null || currentUser.email == null) {
+      throw Exception('Not logged in');
+    }
+
+    final docRef = _firestore
+        .collection('directMessages')
+        .doc(threadId)
+        .collection('messages')
+        .doc(messageId);
+    final snapshot = await docRef.get();
+    final data = snapshot.data();
+    if (data == null) throw Exception('Message not found');
+
+    final key = _reactionKey(emoji, currentUser.email!);
+    final reactions = List<String>.from(data['reactions'] ?? const <String>[]);
+
+    await docRef.update({
+      'reactions': reactions.contains(key)
+          ? FieldValue.arrayRemove([key])
+          : FieldValue.arrayUnion([key]),
+    });
+  }
+
+  /// Posts a Jarvis reply into a direct-message thread.
+  ///
+  /// Jarvis is a virtual participant, so the asking person's client writes
+  /// the reply on its behalf — the rules allow the bot address as a sender
+  /// precisely because there is no server doing it.
+  Future<void> postJarvisDirectMessage(String threadId, String text) async {
+    await _firestore
+        .collection('directMessages')
+        .doc(threadId)
+        .collection('messages')
+        .add({
+          'type': 'summary',
+          'text': text,
+          'senderEmail': jarvisEmail,
+          'timestamp': FieldValue.serverTimestamp(),
+          'reactions': const <String>[],
+        });
+  }
+
+  /// Recent turns of a DM thread, oldest first, as context for Jarvis.
+  Future<List<Map<String, String>>> getRecentDirectMessages(
+    String threadId, {
+    int limit = 10,
+  }) async {
+    final snapshot = await _firestore
+        .collection('directMessages')
+        .doc(threadId)
+        .collection('messages')
+        .orderBy('timestamp', descending: true)
+        .limit(limit)
+        .get();
+
+    return snapshot.docs.reversed.map((doc) {
+      final data = doc.data();
+      return {
+        'sender': (data['senderEmail'] as String?) ?? '',
+        'text': (data['text'] as String?) ?? '',
+      };
+    }).toList();
   }
 
   Stream<QuerySnapshot> getDirectMessageThreads() {

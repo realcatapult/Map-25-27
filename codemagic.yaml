@@ -21,7 +21,7 @@ workflows:
       - name: Install CocoaPods dependencies
         script: |
           cd ios
-          pod install
+          pod install --repo-update
       - name: Build iOS app for simulator
         script: |
           flutter build ios --simulator --debug
@@ -56,7 +56,7 @@ workflows:
       - name: Install CocoaPods dependencies
         script: |
           cd ios
-          pod install
+          pod install --repo-update
           cd ..
       - name: Build unsigned iOS app artifact
         script: |
