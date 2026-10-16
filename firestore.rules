@@ -122,6 +122,21 @@ service cloud.firestore {
         && request.resource.data.members.hasAll(resource.data.members)
         && request.resource.data.members.removeAll(resource.data.members)
              == [myEmail()]
+      )
+        // Any member may set their own availability, and only their own.
+        // Comparing the two maps is what stops someone marking the whole
+        // club Away; the first branch covers the field not existing yet.
+        || (
+        isMember(groupId)
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['memberAvailability'])
+        && (
+          !('memberAvailability' in resource.data)
+          ? request.resource.data.memberAvailability.keys().hasOnly([myEmail()])
+          : request.resource.data.memberAvailability
+              .diff(resource.data.memberAvailability)
+              .affectedKeys().hasOnly([myEmail()])
+        )
       );
 
       allow delete: if isSchoolAdmin()

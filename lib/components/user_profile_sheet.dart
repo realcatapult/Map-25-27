@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../Pages/direct_message_page.dart';
+import '../data/club_presence.dart';
 import '../services/chat_service.dart';
 import '../services/friend_service.dart';
 
@@ -135,6 +136,13 @@ class _UserProfileSheetState extends State<_UserProfileSheet> {
     final role = widget.groupData == null
         ? null
         : _chat.groupRoleName(widget.groupData!, widget.email);
+    // Only meaningful in a club context; a profile opened from the friends
+    // list has no club to be available in.
+    final presence = widget.groupData == null
+        ? null
+        : ClubPresence.fromId(
+            _chat.clubPresenceId(widget.groupData!, widget.email),
+          );
 
     return SafeArea(
       top: false,
@@ -146,7 +154,7 @@ class _UserProfileSheetState extends State<_UserProfileSheet> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _banner(banner, photoUrl, cs),
+            _banner(banner, photoUrl, cs, presence),
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 10, 20, 18),
               child: Column(
@@ -170,6 +178,40 @@ class _UserProfileSheetState extends State<_UserProfileSheet> {
                     _label('ROLE', cs),
                     const SizedBox(height: 6),
                     _roleChip(role, accent),
+                  ],
+                  if (presence != null) ...[
+                    const SizedBox(height: 14),
+                    _label('AVAILABILITY', cs),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        PresenceDot(
+                          presence: presence,
+                          size: 12,
+                          ringColor: cs.surface,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          presence.label,
+                          style: const TextStyle(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            presence.hint,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: cs.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
                   if (_loading) ...[
                     const SizedBox(height: 18),
@@ -196,7 +238,12 @@ class _UserProfileSheetState extends State<_UserProfileSheet> {
   /// Banner plus overlapping avatar. The overlap is the whole point of the
   /// Discord card: it ties identity to the colour strip instead of stacking
   /// two unrelated blocks.
-  Widget _banner(Color accent, String? photoUrl, ColorScheme cs) {
+  Widget _banner(
+    Color accent,
+    String? photoUrl,
+    ColorScheme cs,
+    ClubPresence? presence,
+  ) {
     return SizedBox(
       height: 112,
       child: Stack(
@@ -224,15 +271,20 @@ class _UserProfileSheetState extends State<_UserProfileSheet> {
                 color: cs.surface,
                 shape: BoxShape.circle,
               ),
-              child: CircleAvatar(
-                radius: 36,
-                backgroundColor: cs.surfaceContainerHighest,
-                backgroundImage: (photoUrl != null && photoUrl.isNotEmpty)
-                    ? CachedNetworkImageProvider(photoUrl, maxWidth: 240)
-                    : null,
-                child: (photoUrl == null || photoUrl.isEmpty)
-                    ? Icon(Icons.person, size: 34, color: cs.onSurfaceVariant)
-                    : null,
+              child: AvatarWithPresence(
+                presence: presence ?? ClubPresence.fallback,
+                dotSize: presence == null ? 0 : 20,
+                ringColor: cs.surface,
+                avatar: CircleAvatar(
+                  radius: 36,
+                  backgroundColor: cs.surfaceContainerHighest,
+                  backgroundImage: (photoUrl != null && photoUrl.isNotEmpty)
+                      ? CachedNetworkImageProvider(photoUrl, maxWidth: 240)
+                      : null,
+                  child: (photoUrl == null || photoUrl.isEmpty)
+                      ? Icon(Icons.person, size: 34, color: cs.onSurfaceVariant)
+                      : null,
+                ),
               ),
             ),
           ),

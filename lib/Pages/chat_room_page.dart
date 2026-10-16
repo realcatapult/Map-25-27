@@ -1599,6 +1599,7 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
                 tooltip: 'Members',
                 onPressed: () => showMemberList(
                   context: context,
+                  groupId: widget.groupId,
                   groupData: groupData ?? const <String, dynamic>{},
                   groupName: widget.groupName,
                   accent: themeColor,
