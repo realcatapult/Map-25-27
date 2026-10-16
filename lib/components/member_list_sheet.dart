@@ -1,7 +1,10 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
+import '../data/club_presence.dart';
 import '../services/chat_service.dart';
+import 'club_presence_picker.dart';
 import '../services/friend_service.dart';
 import 'user_profile_sheet.dart';
 
@@ -12,6 +15,7 @@ import 'user_profile_sheet.dart';
 /// three names that answer it among forty that do not.
 Future<void> showMemberList({
   required BuildContext context,
+  required String groupId,
   required Map<String, dynamic> groupData,
   required String groupName,
   Color? accent,
@@ -21,6 +25,7 @@ Future<void> showMemberList({
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
     builder: (_) => _MemberListSheet(
+      groupId: groupId,
       groupData: groupData,
       groupName: groupName,
       accent: accent,
@@ -30,11 +35,16 @@ Future<void> showMemberList({
 
 class _MemberListSheet extends StatefulWidget {
   const _MemberListSheet({
+    required this.groupId,
     required this.groupData,
     required this.groupName,
     this.accent,
   });
 
+  final String groupId;
+
+  /// Starting snapshot. The sheet then watches the group document so a
+  /// member changing their availability shows up without reopening.
   final Map<String, dynamic> groupData;
   final String groupName;
   final Color? accent;
@@ -87,6 +97,16 @@ class _MemberListSheetState extends State<_MemberListSheet> {
 
   @override
   Widget build(BuildContext context) {
+    return StreamBuilder<DocumentSnapshot>(
+      stream: _chat.watchGroup(widget.groupId),
+      builder: (context, snap) {
+        final live = snap.data?.data() as Map<String, dynamic>?;
+        return _buildSheet(context, live ?? widget.groupData);
+      },
+    );
+  }
+
+  Widget _buildSheet(BuildContext context, Map<String, dynamic> groupData) {
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     // Same reasoning as the profile sheet: club colours are often too dark
@@ -98,12 +118,13 @@ class _MemberListSheetState extends State<_MemberListSheet> {
         : (!isDark && hsl.lightness > 0.7
               ? hsl.withLightness(0.4).toColor()
               : raw);
-    final members = List<String>.from(widget.groupData['members'] ?? const []);
+    final me = (_friends.myEmail ?? '').toLowerCase();
+    final members = List<String>.from(groupData['members'] ?? const []);
 
     // Bucket by role, then order the buckets.
     final byRole = <String, List<String>>{};
     for (final email in members) {
-      final role = _chat.groupRoleName(widget.groupData, email);
+      final role = _chat.groupRoleName(groupData, email);
       byRole.putIfAbsent(role, () => []).add(email);
     }
     final orderedRoles = byRole.keys.toList()
@@ -166,7 +187,7 @@ class _MemberListSheetState extends State<_MemberListSheet> {
                       ),
                     ),
                     for (final email in byRole[role]!)
-                      _memberRow(email, role, accent, cs),
+                      _memberRow(email, role, accent, cs, groupData, me),
                   ],
                 ],
               ),
@@ -212,21 +233,37 @@ class _MemberListSheetState extends State<_MemberListSheet> {
     );
   }
 
-  Widget _memberRow(String email, String role, Color accent, ColorScheme cs) {
+  Widget _memberRow(
+    String email,
+    String role,
+    Color accent,
+    ColorScheme cs,
+    Map<String, dynamic> groupData,
+    String me,
+  ) {
     final profile = _profiles[email];
     final photoUrl = profile?['profilePicture'] as String?;
-    final isMe = email.toLowerCase() == (_friends.myEmail ?? '').toLowerCase();
+    final isMe = email.toLowerCase() == me;
+    final presence = ClubPresence.fromId(
+      _chat.clubPresenceId(groupData, email),
+    );
 
     return ListTile(
-      leading: CircleAvatar(
-        radius: 19,
-        backgroundColor: cs.surfaceContainerHighest,
-        backgroundImage: (photoUrl != null && photoUrl.isNotEmpty)
-            ? CachedNetworkImageProvider(photoUrl, maxWidth: 120)
-            : null,
-        child: (photoUrl == null || photoUrl.isEmpty)
-            ? Icon(Icons.person, size: 20, color: cs.onSurfaceVariant)
-            : null,
+      // The dot rides the avatar, so availability reads while scanning the
+      // list rather than only after opening someone.
+      leading: AvatarWithPresence(
+        presence: presence,
+        ringColor: cs.surface,
+        avatar: CircleAvatar(
+          radius: 19,
+          backgroundColor: cs.surfaceContainerHighest,
+          backgroundImage: (photoUrl != null && photoUrl.isNotEmpty)
+              ? CachedNetworkImageProvider(photoUrl, maxWidth: 120)
+              : null,
+          child: (photoUrl == null || photoUrl.isEmpty)
+              ? Icon(Icons.person, size: 20, color: cs.onSurfaceVariant)
+              : null,
+        ),
       ),
       title: Row(
         children: [
@@ -248,20 +285,32 @@ class _MemberListSheetState extends State<_MemberListSheet> {
         ],
       ),
       subtitle: Text(
-        email,
+        isMe ? '${presence.label}  •  tap to change' : presence.label,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+        style: TextStyle(
+          fontSize: 12,
+          color: isMe ? accent : cs.onSurfaceVariant,
+          fontWeight: isMe ? FontWeight.w600 : FontWeight.w400,
+        ),
       ),
       // Friendship state lives on the row so the list answers "who do I
       // already know?" without opening each profile.
       trailing: isMe ? null : _stateDot(email, accent, cs),
-      onTap: () => showUserProfile(
-        context: context,
-        email: email,
-        groupData: widget.groupData,
-        accent: accent,
-      ),
+      // Your own row is where you would look for your own status, so it sets
+      // availability; everyone else's opens their profile.
+      onTap: () => isMe
+          ? showClubPresencePicker(
+              context: context,
+              groupId: widget.groupId,
+              current: presence,
+            )
+          : showUserProfile(
+              context: context,
+              email: email,
+              groupData: groupData,
+              accent: accent,
+            ),
     );
   }
 

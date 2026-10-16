@@ -517,6 +517,34 @@ class ChatService {
   }
 
   // Update group admins
+  /// Sets the current user's availability inside one club.
+  ///
+  /// Stored as a `memberAvailability` map on the group, keyed by email, which
+  /// matches how `memberRoles` and `memberPermissions` already work. Keeping
+  /// it on the group rather than the user is what makes the status per club:
+  /// you can be free for one and heads-down for another.
+  Future<void> setMyClubPresence(String groupId, String presenceId) async {
+    final currentUser = _auth.currentUser;
+    if (currentUser == null || currentUser.email == null) {
+      throw Exception('Not logged in');
+    }
+
+    await _firestore.collection('groups').doc(groupId).set({
+      'memberAvailability': {currentUser.email!: presenceId},
+      // Merged, so one member's change cannot clobber everyone else's.
+    }, SetOptions(merge: true));
+  }
+
+  /// Reads a member's availability out of a group document.
+  String clubPresenceId(Map<String, dynamic> groupData, String email) {
+    final map = groupData['memberAvailability'];
+    if (map is Map) {
+      final value = map[email];
+      if (value is String && value.isNotEmpty) return value;
+    }
+    return 'available';
+  }
+
   Future<void> updateGroupAdmins(String groupId, List<String> admins) async {
     await _firestore.collection('groups').doc(groupId).update({
       'admins': admins,
