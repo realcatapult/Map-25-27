@@ -133,10 +133,7 @@ class _SearchPageState extends State<SearchPage> {
         _userInterests,
         club.keywords,
       );
-      final score = _recommendationScore(
-        memberCount: club.memberCount,
-        matchedKeyword: matchKeyword,
-      );
+      final score = _recommendationScore(matchedKeyword: matchKeyword);
       ranked.add(
         _RankedClub(item: club, matchedKeyword: matchKeyword, score: score),
       );
@@ -146,11 +143,7 @@ class _SearchPageState extends State<SearchPage> {
       final data = doc.data() as Map<String, dynamic>;
       final keywords = List<String>.from(data['keywords'] ?? const <String>[]);
       final matchKeyword = _firstInterestKeywordMatch(_userInterests, keywords);
-      final members = List<String>.from(data['members'] ?? const <String>[]);
-      final score = _recommendationScore(
-        memberCount: members.length,
-        matchedKeyword: matchKeyword,
-      );
+      final score = _recommendationScore(matchedKeyword: matchKeyword);
 
       ranked.add(
         _RankedClub(item: doc, matchedKeyword: matchKeyword, score: score),
@@ -161,12 +154,8 @@ class _SearchPageState extends State<SearchPage> {
     return ranked;
   }
 
-  int _recommendationScore({
-    required int memberCount,
-    required String? matchedKeyword,
-  }) {
-    final keywordBonus = matchedKeyword == null ? 0 : 1000;
-    return keywordBonus + memberCount;
+  int _recommendationScore({required String? matchedKeyword}) {
+    return matchedKeyword == null ? 0 : 1000;
   }
 
   String? _firstInterestKeywordMatch(

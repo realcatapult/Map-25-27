@@ -273,6 +273,27 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  void _openClubChat(_CalendarEvent event) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ChatRoomPage(
+          groupId: event.groupId,
+          groupName: event.groupName,
+        ),
+      ),
+    );
+  }
+
+  List<_CalendarEvent> _upcomingEvents() {
+    final today = _normalizeDay(DateTime.now());
+    return _eventsByDay.values
+        .expand((events) => events)
+        .where((event) => !_normalizeDay(event.date).isBefore(today))
+        .toList()
+      ..sort((a, b) => a.date.compareTo(b.date));
+  }
+
   Future<void> _loadEventsForGroups(List<String> groupIds) async {
     if (_isLoadingEvents) return;
     setState(() {
@@ -516,6 +537,12 @@ class _HomePageState extends State<HomePage> {
               physics: const AlwaysScrollableScrollPhysics(),
               children: [
                 if (showNotifications) ...[
+                  _studentWelcome(),
+                  const SizedBox(height: _sectionGap),
+                  _upcomingEventsSection(),
+                  const SizedBox(height: _sectionGap),
+                ],
+                if (showNotifications) ...[
                   _section(
                     title: 'NOTIFICATIONS',
                     loading: _isLoadingNotifications,
@@ -552,6 +579,154 @@ class _HomePageState extends State<HomePage> {
               child: LinearProgressIndicator(minHeight: 2),
             ),
         ],
+      ),
+    );
+  }
+
+  Widget _studentWelcome() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [AppColors.navy, AppColors.cyan],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Make this week yours.',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Find an activity you enjoy, meet people with similar interests, '
+            'or see what your clubs are doing next.',
+            style: TextStyle(color: Colors.white, height: 1.4),
+          ),
+          const SizedBox(height: 14),
+          FilledButton.icon(
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const DiscoverPage()),
+            ),
+            icon: const Icon(Icons.explore_outlined),
+            label: const Text('Explore clubs'),
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: AppColors.navy,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _upcomingEventsSection() {
+    final events = _upcomingEvents().take(3).toList();
+    return _section(
+      title: 'COMING UP',
+      child: events.isEmpty
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _emptyNote(
+                  'No upcoming club events yet. Explore clubs to find a new '
+                  'activity or group to connect with.',
+                ),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const DiscoverPage(),
+                      ),
+                    ),
+                    icon: const Icon(Icons.explore_outlined),
+                    label: const Text('Find something to try'),
+                  ),
+                ),
+              ],
+            )
+          : Column(
+              children: [
+                for (var i = 0; i < events.length; i++) ...[
+                  if (i > 0)
+                    Divider(
+                      height: 1,
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.outlineVariant.withValues(alpha: 0.2),
+                    ),
+                  _upcomingEventRow(events[i]),
+                ],
+              ],
+            ),
+    );
+  }
+
+  Widget _upcomingEventRow(_CalendarEvent event) {
+    final cs = Theme.of(context).colorScheme;
+    final dateLabel =
+        '${event.date.month}/${event.date.day} · '
+        '${event.date.hour % 12 == 0 ? 12 : event.date.hour % 12}:'
+        '${event.date.minute.toString().padLeft(2, '0')} '
+        '${event.date.hour < 12 ? 'AM' : 'PM'}';
+
+    return InkWell(
+      onTap: () => _openClubChat(event),
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Row(
+          children: [
+            Icon(Icons.event_outlined, color: cs.primary),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    event.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    '$dateLabel · ${event.groupName}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+                  ),
+                  if (event.description.isNotEmpty) ...[
+                    const SizedBox(height: 3),
+                    Text(
+                      event.description,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Icon(Icons.chevron_right, color: cs.onSurfaceVariant),
+          ],
+        ),
       ),
     );
   }

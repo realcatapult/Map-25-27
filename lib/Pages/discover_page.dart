@@ -14,7 +14,7 @@ class DemoClub {
   final Color logoColor;
   final List<Color> bannerGradient;
   final List<String> keywords;
-  final int memberCount;
+  final String firstStep;
   final String? bannerImage;
 
   const DemoClub({
@@ -24,7 +24,7 @@ class DemoClub {
     required this.logoColor,
     required this.bannerGradient,
     required this.keywords,
-    required this.memberCount,
+    required this.firstStep,
     this.bannerImage,
   });
 }
@@ -38,7 +38,7 @@ const List<DemoClub> demoClubs = [
     logoColor: Color(0xFF1565C0),
     bannerGradient: [Color(0xFF1565C0), Color(0xFF42A5F5)],
     keywords: ['Photography', 'Art', 'Design', 'Culture'],
-    memberCount: 124,
+    firstStep: 'Join a weekly photo walk.',
     bannerImage: 'lib/images/PhotoBanner.jpeg',
   ),
   DemoClub(
@@ -49,7 +49,7 @@ const List<DemoClub> demoClubs = [
     logoColor: Color(0xFF2E7D32),
     bannerGradient: [Color(0xFF2E7D32), Color(0xFF66BB6A)],
     keywords: ['Coding', 'STEM', 'AI', 'Engineering'],
-    memberCount: 89,
+    firstStep: 'Explore a project with other members.',
     bannerImage: 'lib/images/codingclub.jpeg',
   ),
   DemoClub(
@@ -60,7 +60,7 @@ const List<DemoClub> demoClubs = [
     logoColor: Color(0xFF6A1B9A),
     bannerGradient: [Color(0xFF6A1B9A), Color(0xFFAB47BC)],
     keywords: ['Chess', 'Math', 'Strategy'],
-    memberCount: 57,
+    firstStep: 'Get free coaching from experienced players.',
     bannerImage: 'lib/images/chess.jpeg',
   ),
   DemoClub(
@@ -71,7 +71,7 @@ const List<DemoClub> demoClubs = [
     logoColor: Color(0xFFE65100),
     bannerGradient: [Color(0xFFE65100), Color(0xFFFF8A65)],
     keywords: ['Outdoors', 'Environment', 'Health'],
-    memberCount: 203,
+    firstStep: 'Join a weekend hike.',
   ),
   DemoClub(
     name: 'Art & Design Club',
@@ -81,7 +81,7 @@ const List<DemoClub> demoClubs = [
     logoColor: Color(0xFFC62828),
     bannerGradient: [Color(0xFFC62828), Color(0xFFEF9A9A)],
     keywords: ['Art', 'Design', 'Culture'],
-    memberCount: 76,
+    firstStep: 'Take part in a collaborative mural.',
   ),
   DemoClub(
     name: 'Music Lounge',
@@ -91,7 +91,7 @@ const List<DemoClub> demoClubs = [
     logoColor: Color(0xFF8E24AA),
     bannerGradient: [Color(0xFF8E24AA), Color(0xFFBA68C8)],
     keywords: ['Music', 'Culture', 'Performance'],
-    memberCount: 143,
+    firstStep: 'Share a playlist or join an open mic.',
   ),
   DemoClub(
     name: 'Entrepreneurship Club',
@@ -101,7 +101,7 @@ const List<DemoClub> demoClubs = [
     logoColor: Color(0xFF37474F),
     bannerGradient: [Color(0xFF37474F), Color(0xFF90A4AE)],
     keywords: ['Business', 'Entrepreneurship', 'Marketing', 'Finance'],
-    memberCount: 98,
+    firstStep: 'Check out a startup or product workshop.',
   ),
   DemoClub(
     name: 'Cooking Club',
@@ -111,7 +111,7 @@ const List<DemoClub> demoClubs = [
     logoColor: Color(0xFFEF6C00),
     bannerGradient: [Color(0xFFEF6C00), Color(0xFFFFCC80)],
     keywords: ['Cooking', 'Culture', 'Health'],
-    memberCount: 68,
+    firstStep: 'Try a recipe at a cook-along.',
   ),
 ];
 // ──────────────────────────────────────────────────────────────────────────
@@ -150,16 +150,75 @@ class DiscoverPage extends StatelessWidget {
             return ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                // ── Demo / placeholder clubs ──
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        Icons.waving_hand_outlined,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'New to clubs?',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onPrimaryContainer,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Start with an activity that sounds fun. Read '
+                              'what a club does before deciding whether to '
+                              'join—there’s no need to know anyone already.',
+                              style: TextStyle(
+                                height: 1.4,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onPrimaryContainer,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+                // ── Sample ideas, not clubs a student can join ──
                 Padding(
                   padding: const EdgeInsets.only(bottom: 10),
                   child: Text(
-                    'Featured Clubs',
+                    'Sample club ideas',
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.bold,
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                       letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Text(
+                    'These examples show the kinds of activities clubs might '
+                    'offer. Real clubs at your school appear below.',
+                    style: TextStyle(
+                      fontSize: 13,
+                      height: 1.4,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
                   ),
                 ),
@@ -198,22 +257,14 @@ class DiscoverPage extends StatelessWidget {
 }
 
 // ── Demo Club Card ─────────────────────────────────────────────────────────
-class DemoClubCard extends StatefulWidget {
+class DemoClubCard extends StatelessWidget {
   final DemoClub club;
   final String? matchedKeyword;
 
   const DemoClubCard({super.key, required this.club, this.matchedKeyword});
 
   @override
-  State<DemoClubCard> createState() => _DemoClubCardState();
-}
-
-class _DemoClubCardState extends State<DemoClubCard> {
-  bool _requested = false;
-
-  @override
   Widget build(BuildContext context) {
-    final club = widget.club;
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
@@ -288,9 +339,9 @@ class _DemoClubCardState extends State<DemoClubCard> {
                   spacing: 6,
                   runSpacing: 6,
                   children: [
-                    if (widget.matchedKeyword != null)
+                    if (matchedKeyword != null)
                       _KeywordPill(
-                        label: 'Recommended: ${widget.matchedKeyword}',
+                        label: 'Recommended: $matchedKeyword',
                         emphasize: true,
                       ),
                     ...club.keywords
@@ -320,41 +371,10 @@ class _DemoClubCardState extends State<DemoClubCard> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    _requested
-                        ? OutlinedButton(
-                            onPressed: null,
-                            style: OutlinedButton.styleFrom(
-                              side: const BorderSide(color: Colors.grey),
-                            ),
-                            child: const Text(
-                              'Requested',
-                              style: TextStyle(color: Colors.grey),
-                            ),
-                          )
-                        : ElevatedButton(
-                            onPressed: () {
-                              setState(() => _requested = true);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    'Request sent to join ${club.name}!',
-                                  ),
-                                ),
-                              );
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Theme.of(
-                                context,
-                              ).colorScheme.primary,
-                            ),
-                            child: const Text(
-                              'Request to Join',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ),
+                    const Chip(
+                      label: Text('Sample'),
+                      visualDensity: VisualDensity.compact,
+                    ),
                   ],
                 ),
                 const SizedBox(height: 6),
@@ -368,21 +388,25 @@ class _DemoClubCardState extends State<DemoClubCard> {
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 10),
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.people, size: 14, color: Colors.grey[500]),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${club.memberCount} members',
-                      style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                    Icon(
+                      Icons.lightbulb_outline,
+                      size: 17,
+                      color: Theme.of(context).colorScheme.primary,
                     ),
-                    const SizedBox(width: 12),
-                    Icon(Icons.lock_open, size: 14, color: Colors.grey[500]),
-                    const SizedBox(width: 4),
-                    Text(
-                      'Public',
-                      style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'A first thing to try: ${club.firstStep}',
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          fontSize: 12,
+                          height: 1.35,
+                        ),
+                      ),
                     ),
                   ],
                 ),

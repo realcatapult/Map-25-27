@@ -26,8 +26,9 @@ This README reflects the current implementation in this repository.
   - edit group keywords
 - Direct messages between users
 - Group calendar events + home calendar aggregation/filtering
+- Student-first home experience with upcoming events and a direct path to club discovery
 - Notifications panel on Home (latest group + DM activity)
-- Discover page with demo clubs + live Firestore clubs
+- Discover page with newcomer guidance, clearly labeled sample club ideas, and live Firestore clubs
 - Search page with keyword-aware matching and ranking
 - Recommendation system:
   - user interest preferences are stored
@@ -103,19 +104,15 @@ flutter run
 
 ## AI Key Setup (Direct Gemini Demo Mode)
 
-If `AiService.backend` is set to direct Gemini mode, create:
+To enable direct Gemini replies, pass a key at build/run time:
 
-- `lib/services/ai_secrets.dart`
-
-With:
-
-```dart
-const String geminiApiKey = 'YOUR_KEY_HERE';
+```bash
+flutter run --dart-define=GEMINI_API_KEY=YOUR_KEY_HERE
 ```
 
-Notes:
-- `lib/services/ai_secrets.dart` is gitignored.
-- `lib/services/ai_secrets.example.dart` is the template.
+Without this optional key, the app still builds and runs, but AI support replies
+that the feature is not configured. For public releases, use the Cloud Function
+backend instead of embedding a Gemini key in the app.
 
 ## Data Notes
 
