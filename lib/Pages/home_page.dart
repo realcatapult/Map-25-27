@@ -284,10 +284,8 @@ class _HomePageState extends State<HomePage> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => ChatRoomPage(
-          groupId: event.groupId,
-          groupName: event.groupName,
-        ),
+        builder: (_) =>
+            ChatRoomPage(groupId: event.groupId, groupName: event.groupName),
       ),
     );
   }
@@ -654,9 +652,7 @@ class _HomePageState extends State<HomePage> {
                   child: TextButton.icon(
                     onPressed: () => Navigator.push(
                       context,
-                      MaterialPageRoute(
-                        builder: (_) => const DiscoverPage(),
-                      ),
+                      MaterialPageRoute(builder: (_) => const DiscoverPage()),
                     ),
                     icon: const Icon(Icons.explore_outlined),
                     label: const Text('Find something to try'),

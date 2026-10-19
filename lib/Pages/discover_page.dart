@@ -6,6 +6,7 @@ import 'package:login_ui/Pages/chat_room_page.dart';
 import 'package:login_ui/theme/app_theme.dart';
 import 'package:login_ui/components/skeleton_loader.dart';
 import 'package:login_ui/services/join_request_service.dart';
+import 'package:login_ui/components/club_matcher_sheet.dart';
 
 // ── Placeholder demo data ──────────────────────────────────────────────────
 class DemoClub {
@@ -133,6 +134,24 @@ class DiscoverPage extends StatelessWidget {
           style: TextStyle(color: Colors.white),
         ),
         iconTheme: const IconThemeData(color: Colors.white),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.help_outline, color: Colors.white),
+            tooltip: 'Help me find a club',
+            onPressed: () => showClubMatcher(context),
+          ),
+          const SizedBox(width: 4),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => showClubMatcher(context),
+        backgroundColor: AppColors.brass,
+        foregroundColor: AppColors.navy,
+        icon: const Icon(Icons.auto_awesome, size: 20),
+        label: const Text(
+          'Find my club',
+          style: TextStyle(fontWeight: FontWeight.w700),
+        ),
       ),
       body: NeonBackground(
         child: StreamBuilder<QuerySnapshot>(
@@ -198,11 +217,12 @@ class DiscoverPage extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 20),
-                // ── Sample ideas, not clubs a student can join ──
+                // These are not Firestore clubs, so their request button
+                // explains itself rather than pretending to file a request.
                 Padding(
                   padding: const EdgeInsets.only(bottom: 10),
                   child: Text(
-                    'Sample club ideas',
+                    'More clubs',
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.bold,
@@ -371,11 +391,6 @@ class DemoClubCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    const Chip(
-                      label: Text('Sample'),
-                      visualDensity: VisualDensity.compact,
-                    ),
                   ],
                 ),
                 const SizedBox(height: 6),
@@ -410,6 +425,29 @@ class DemoClubCard extends StatelessWidget {
                       ),
                     ),
                   ],
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            '${club.name} is not on the app yet. '
+                            'Ask a teacher to start it.',
+                          ),
+                        ),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Theme.of(context).colorScheme.primary,
+                    ),
+                    child: const Text(
+                      'Request to join',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ),
                 ),
               ],
             ),

@@ -2,6 +2,10 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:cloud_functions/cloud_functions.dart';
 
+// Gitignored; CI writes it from $GEMINI_API_KEY, and locally you paste your
+// own key into it. ai_secrets.example.dart is the committed template.
+import 'ai_secrets.dart';
+
 /// A single message in the support conversation.
 class AiMessage {
   final String role; // 'user' or 'assistant'
@@ -44,10 +48,14 @@ class AiService {
     defaultValue: '',
   );
 
-  /// The key actually used. A `--dart-define` wins when one was passed;
-  /// A missing key does not prevent the app from building; AI replies explain
-  /// that the feature needs configuration.
-  static const String _apiKey = _definedKey;
+  /// The key actually used. A `--dart-define` wins when CI passes one;
+  /// otherwise this falls back to the gitignored `ai_secrets.dart`, so a
+  /// plain `flutter run` works without remembering the flag.
+  ///
+  /// Without the fallback, every local build ships an empty key and every AI
+  /// feature reports itself unconfigured. `ai_secrets.dart` is not in git, so
+  /// CI generates it from GEMINI_API_KEY before building (see codemagic.yaml).
+  static const String _apiKey = _definedKey == '' ? geminiApiKey : _definedKey;
 
   static const String _model = 'gemini-2.5-flash';
 
@@ -98,6 +106,83 @@ class AiService {
   /// Answers an in-chat "@jarvis" question. [recentMessages] is optional recent
   /// group chat context as {sender, text} maps (oldest first) so Jarvis can
   /// respond in context.
+  /// Ranks real clubs against what someone says they are looking for.
+  ///
+  /// [clubs] carries the actual clubs, each as
+  /// `{id, name, overview, keywords}`. The model is told to choose only from
+  /// that list and to answer with ids, so it cannot invent a club that does
+  /// not exist — the failure mode that would make this feature worse than
+  /// useless at a club fair.
+  ///
+  /// Returns `{id, reason}` pairs, best first. An empty list means nothing
+  /// matched, which is a legitimate answer.
+  Future<List<({String id, String reason})>> matchClubs({
+    required String wanted,
+    required List<Map<String, dynamic>> clubs,
+  }) async {
+    if (_apiKey.isEmpty || clubs.isEmpty) return const [];
+
+    final catalogue = clubs
+        .map(
+          (c) =>
+              '- id: ${c['id']}\n'
+              '  name: ${c['name']}\n'
+              '  about: ${(c['overview'] as String?)?.trim().isEmpty ?? true ? '(none given)' : c['overview']}\n'
+              '  tags: ${(c['keywords'] as List?)?.join(', ') ?? ''}',
+        )
+        .join('\n');
+
+    final prompt =
+        '''
+A student describes the club they want. Pick the best matches from the list.
+
+Student wants: "$wanted"
+
+Clubs available:
+$catalogue
+
+Rules:
+- Choose ONLY from the ids above. Never invent a club.
+- Return at most 3, best first. Return none if nothing genuinely fits.
+- The reason must say why THIS club fits what they asked, in under 15 words,
+  addressed to the student.
+
+Reply with JSON only, no code fence:
+{"matches":[{"id":"<id>","reason":"<why>"}]}''';
+
+    try {
+      final raw = await _directGeminiReply([
+        AiMessage(role: 'user', content: prompt),
+      ]);
+
+      // Models sometimes wrap JSON in prose or a fence despite instructions,
+      // so take the outermost object rather than trusting the whole string.
+      final start = raw.indexOf('{');
+      final end = raw.lastIndexOf('}');
+      if (start == -1 || end <= start) return const [];
+
+      final decoded = jsonDecode(raw.substring(start, end + 1));
+      final matches = (decoded is Map ? decoded['matches'] : null) as List?;
+      if (matches == null) return const [];
+
+      final validIds = clubs.map((c) => c['id'] as String).toSet();
+      return matches
+          .whereType<Map>()
+          .map(
+            (m) => (
+              id: (m['id'] ?? '').toString(),
+              reason: (m['reason'] ?? '').toString(),
+            ),
+          )
+          // Drop anything hallucinated, even though the prompt forbids it.
+          .where((m) => validIds.contains(m.id))
+          .take(3)
+          .toList();
+    } catch (_) {
+      return const [];
+    }
+  }
+
   Future<String> askJarvis(
     String question, {
     List<Map<String, String>> recentMessages = const [],
