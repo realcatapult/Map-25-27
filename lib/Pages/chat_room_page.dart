@@ -503,6 +503,9 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
         groupData['keywords'] ?? const <String>[],
       ).join(', '),
     );
+    final roomNumberController = TextEditingController(
+      text: (groupData['roomNumber'] as String?) ?? '',
+    );
     await showDialog(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
@@ -543,6 +546,17 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
                   onChanged: (value) {
                     if (value != null) setDialogState(() => whoCanPost = value);
                   },
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: roomNumberController,
+                  textCapitalization: TextCapitalization.words,
+                  decoration: const InputDecoration(
+                    labelText: 'Club meeting room',
+                    hintText: 'e.g. Room 204',
+                    helperText: 'Shown on club listings and event details.',
+                    prefixIcon: Icon(Icons.location_on_outlined),
+                  ),
                 ),
                 if (createdBy == FirebaseAuth.instance.currentUser?.email) ...[
                   const SizedBox(height: 8),
@@ -684,6 +698,7 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
                     themeColor: themeColor,
                     themeIcon: themeIcon,
                     keywords: keywords,
+                    roomNumber: roomNumberController.text,
                   );
                   if (!mounted || !dialogContext.mounted) return;
                   await _closeInputDialog(dialogContext);
@@ -704,6 +719,7 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
     );
 
     keywordsController.dispose();
+    roomNumberController.dispose();
   }
 
   Widget _buildVisibilityActionChip(
@@ -1185,7 +1201,11 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
     }
   }
 
-  Widget _buildClubPostCard(Map<String, dynamic> message, Color accentColor) {
+  Widget _buildClubPostCard(
+    Map<String, dynamic> message,
+    Color accentColor,
+    String roomNumber,
+  ) {
     final isEvent = message['type'] == 'event';
     final eventDate = (message['eventDate'] as Timestamp?)?.toDate();
     final colorScheme = Theme.of(context).colorScheme;
@@ -1237,6 +1257,26 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
                 fontSize: 12,
               ),
             ),
+          ],
+          if (isEvent) ...[
+            const SizedBox(height: 4),
+            Text(
+              'Hosted by ${widget.groupName}',
+              style: TextStyle(
+                color: colorScheme.onSurfaceVariant,
+                fontSize: 12,
+              ),
+            ),
+            if (roomNumber.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(
+                'Room $roomNumber',
+                style: TextStyle(
+                  color: colorScheme.onSurfaceVariant,
+                  fontSize: 12,
+                ),
+              ),
+            ],
           ],
           if ((message['text'] as String? ?? '').trim().isNotEmpty) ...[
             const SizedBox(height: 8),
@@ -2183,6 +2223,10 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
                                                     _buildClubPostCard(
                                                       message,
                                                       themeColor,
+                                                      (groupData?['roomNumber']
+                                                                  as String? ??
+                                                              '')
+                                                          .trim(),
                                                     ),
                                                   if (!isClubPost &&
                                                       pollData != null)

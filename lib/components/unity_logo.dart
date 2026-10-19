@@ -3,22 +3,14 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:login_ui/theme/app_theme.dart';
 
-/// The "Unity" brand mark: three brass shards that interlock into a single
-/// rounded triangle — symbolizing separate people/clubs coming together.
-///
-/// [assembly] 0..1 controls how assembled the mark is:
-///   0 = shards scattered/exploded outward and faded,
-///   1 = fully assembled, tight logo.
-/// Use values > 1 conceptually by driving the reveal (see UnityRevealOverlay).
+/// Displays the GroupApp brand mark on a light tile for contrast.
 class UnityLogo extends StatelessWidget {
   final double size;
 
-  /// 1 = assembled. As it goes 1 -> 0 (or beyond via [explode]) the shards
-  /// separate. [explode] pushes shards further out for the reveal.
+  /// Controls how visible the mark is during the login reveal.
   final double assembly;
 
-  /// Extra outward push (0 = none). Used by the split reveal to fling shards
-  /// off-screen while fading.
+  /// Scales the complete mark away during the login reveal.
   final double explode;
 
   const UnityLogo({
@@ -33,90 +25,32 @@ class UnityLogo extends StatelessWidget {
     return SizedBox(
       width: size,
       height: size,
-      child: CustomPaint(
-        painter: _UnityPainter(assembly: assembly, explode: explode),
+      child: Opacity(
+        opacity: (assembly * (1 - explode)).clamp(0.0, 1.0),
+        child: Transform.scale(
+          scale: 1 - 0.55 * explode,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: AppColors.bgLight,
+              borderRadius: BorderRadius.circular(size * 0.22),
+            ),
+            child: Padding(
+              padding: EdgeInsets.all(size * 0.025),
+              child: Image.asset(
+                'images/logo.png',
+                fit: BoxFit.contain,
+                semanticLabel: 'GroupApp logo',
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
 }
 
-class _UnityPainter extends CustomPainter {
-  final double assembly; // 0..1
-  final double explode; // 0..N
-
-  _UnityPainter({required this.assembly, required this.explode});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final r = size.width * 0.36;
-
-    // Three shards arranged around the center, pointing outward at 120° apart.
-    // Each shard is a rounded triangle wedge; when assembled they meet at center.
-    const shardColors = [
-      AppColors.brass,
-      AppColors.brassLight,
-      AppColors.brassDeep,
-    ];
-
-    for (int i = 0; i < 3; i++) {
-      final angle = -math.pi / 2 + i * (2 * math.pi / 3); // start at top
-      // Separation distance: 0 when assembled, grows as assembly drops or on explode.
-      final sep = (1 - assembly) * r * 1.4 + explode * size.width;
-      final dir = Offset(math.cos(angle), math.sin(angle));
-      final shardCenter = center + dir * (r * 0.42 + sep);
-
-      // Fade shards out as they explode away.
-      final fade = (1.0 - explode).clamp(0.0, 1.0);
-      final opacity = (0.35 + 0.65 * assembly) * fade;
-
-      final paint = Paint()
-        ..color = shardColors[i].withValues(alpha: opacity)
-        ..style = PaintingStyle.fill;
-
-      // Build a wedge shard as a path, rotated to point outward.
-      final path = _shardPath(shardCenter, r, angle);
-      canvas.drawPath(path, paint);
-    }
-
-    // Central "core" dot that binds them, brightest when assembled.
-    final core = Paint()
-      ..color = Colors.white.withValues(
-        alpha: (assembly * (1 - explode)).clamp(0.0, 1.0),
-      );
-    if (assembly > 0.6 && explode < 0.5) {
-      canvas.drawCircle(center, r * 0.14 * assembly, core);
-    }
-  }
-
-  /// A rounded triangular shard centered at [c], pointing along [angle].
-  Path _shardPath(Offset c, double r, double angle) {
-    final size = r * 0.95;
-    // Local shard: an isosceles triangle pointing "up" (toward center),
-    // then rotate by angle+90° so its tip faces the middle.
-    final tip = Offset(0, -size * 0.55);
-    final baseL = Offset(-size * 0.5, size * 0.45);
-    final baseR = Offset(size * 0.5, size * 0.45);
-
-    final path = Path()
-      ..moveTo(tip.dx, tip.dy)
-      ..lineTo(baseR.dx, baseR.dy)
-      ..lineTo(baseL.dx, baseL.dy)
-      ..close();
-
-    final matrix = Matrix4.identity()
-      ..translateByDouble(c.dx, c.dy, 0, 1)
-      ..rotateZ(angle + math.pi / 2);
-    return path.transform(matrix.storage);
-  }
-
-  @override
-  bool shouldRepaint(covariant _UnityPainter oldDelegate) =>
-      oldDelegate.assembly != assembly || oldDelegate.explode != explode;
-}
-
-/// Plays once after login: an OVERLAY that spins the Unity logo on a solid
-/// backdrop (hiding the app while it loads), then splits the shards apart.
+/// Plays once after login: an overlay that spins the brand mark, then scales
+/// and fades it away to reveal the app underneath.
 ///
 /// This renders ONLY the logo + backdrop — stack it ON TOP of the real app so
 /// the app never structurally moves in the tree (which would rebuild it and
@@ -230,15 +164,12 @@ class _UnityRevealOverlayState extends State<UnityRevealOverlay>
 
   @override
   Widget build(BuildContext context) {
-    // Hard cut when done — no fade/crossfade. The navy stays 100% opaque the
-    // whole animation (shards explode ON it), then this one instant removes the
-    // whole overlay. Because the app behind is already painted, the cut is
-    // flicker-free (there is no intermediate blended frame to flash).
+    // Keep the overlay opaque until its final frame so removing it does not
+    // reveal a partially blended frame.
     if (_done) return const SizedBox.shrink();
 
     return IgnorePointer(
-      // Solid navy fills the screen the ENTIRE time — never translucent, so the
-      // app is never partially visible through it during the animation.
+      // The light background keeps the navy portion of the mark visible.
       child: ColoredBox(
         color: AppColors.navy,
         child: RepaintBoundary(

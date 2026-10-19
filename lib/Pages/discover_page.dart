@@ -439,6 +439,7 @@ class ClubCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final name = (data['name'] ?? 'Club') as String;
     final overview = (data['overview'] ?? '') as String;
+    final roomNumber = (data['roomNumber'] as String?)?.trim() ?? '';
     final bannerUrl = data['bannerUrl'] as String?;
     final members = List<String>.from(data['members'] ?? []);
     final memberCount = members.length;
@@ -572,6 +573,31 @@ class ClubCard extends StatelessWidget {
                     ),
                     maxLines: 3,
                     overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+                if (roomNumber.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.location_on_outlined,
+                        size: 16,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      const SizedBox(width: 5),
+                      Expanded(
+                        child: Text(
+                          'Meets in Room $roomNumber',
+                          style: TextStyle(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
                 const SizedBox(height: 8),

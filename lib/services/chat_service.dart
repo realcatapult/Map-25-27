@@ -80,8 +80,9 @@ class ChatService {
     String whoCanPost,
     int themeColor,
     String themeIcon,
-    List<String>? keywords,
-  ) async {
+    List<String>? keywords, {
+    String? roomNumber,
+  }) async {
     final currentUser = _auth.currentUser;
     if (currentUser == null) throw Exception('Not logged in');
     if (currentUser.email == null) throw Exception('No email for user');
@@ -121,6 +122,8 @@ class ChatService {
       'themeColor': themeColor,
       'themeIcon': themeIcon,
       'keywords': keywords ?? const <String>[],
+      if (roomNumber != null && roomNumber.trim().isNotEmpty)
+        'roomNumber': roomNumber.trim(),
       'defaultReminderWindow': _defaultReminderWindow,
     });
 
@@ -342,6 +345,7 @@ class ChatService {
     String? bannerUrl,
     String? overview,
     List<String>? keywords,
+    String? roomNumber,
   }) async {
     final updates = <String, dynamic>{};
     if (isPublic != null) updates['isPublic'] = isPublic;
@@ -351,6 +355,7 @@ class ChatService {
     if (bannerUrl != null) updates['bannerUrl'] = bannerUrl;
     if (overview != null) updates['overview'] = overview;
     if (keywords != null) updates['keywords'] = keywords;
+    if (roomNumber != null) updates['roomNumber'] = roomNumber.trim();
 
     if (updates.isNotEmpty) {
       await _firestore.collection('groups').doc(groupId).update(updates);
@@ -1149,6 +1154,7 @@ class ChatService {
           'groupName': group['name'] ?? 'Group',
           'title': event['title'] ?? 'Upcoming event',
           'description': event['description'] ?? '',
+          'roomNumber': (group['roomNumber'] ?? '').toString().trim(),
           'date': Timestamp.fromDate(eventDate),
           'timestamp': Timestamp.fromDate(eventDate),
         });

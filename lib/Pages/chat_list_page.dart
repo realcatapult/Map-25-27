@@ -29,6 +29,7 @@ class _ChatListPageState extends State<ChatListPage> {
   final TextEditingController _joinCodeController = TextEditingController();
   final TextEditingController _overviewController = TextEditingController();
   final TextEditingController _keywordsController = TextEditingController();
+  final TextEditingController _roomNumberController = TextEditingController();
   bool _isCreating = false;
   bool _isPublic = true;
   String _whoCanPost = 'all';
@@ -54,6 +55,7 @@ class _ChatListPageState extends State<ChatListPage> {
   void _showCreateGroupDialog() {
     _bannerImageFile = null;
     _keywordsController.clear();
+    _roomNumberController.clear();
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
@@ -78,6 +80,16 @@ class _ChatListPageState extends State<ChatListPage> {
                     hintText: 'Brief description of your club...',
                   ),
                   maxLines: 3,
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _roomNumberController,
+                  textCapitalization: TextCapitalization.words,
+                  decoration: const InputDecoration(
+                    labelText: 'Club meeting room (optional)',
+                    hintText: 'e.g. Room 204',
+                    prefixIcon: Icon(Icons.location_on_outlined),
+                  ),
                 ),
                 const SizedBox(height: 16),
                 TextField(
@@ -312,6 +324,7 @@ class _ChatListPageState extends State<ChatListPage> {
                             _themeColor,
                             _themeIcon,
                             keywords,
+                            roomNumber: _roomNumberController.text,
                           );
 
                           // Upload banner if selected
@@ -339,6 +352,7 @@ class _ChatListPageState extends State<ChatListPage> {
                             _membersController.clear();
                             _overviewController.clear();
                             _keywordsController.clear();
+                            _roomNumberController.clear();
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Text(
@@ -727,6 +741,7 @@ class _ChatListPageState extends State<ChatListPage> {
     _joinCodeController.dispose();
     _overviewController.dispose();
     _keywordsController.dispose();
+    _roomNumberController.dispose();
     super.dispose();
   }
 }
