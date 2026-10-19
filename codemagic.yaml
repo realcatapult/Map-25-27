@@ -70,11 +70,36 @@ workflows:
         script: |
           set -e
           export GEMINI_API_KEY="$GEMINI_API_KEY"
-          flutter build ios --release --no-codesign --dart-define=GEMINI_API_KEY=$GEMINI_API_KEY
+          # Two-stage build on purpose. "flutter build ios --no-codesign"
+          # still honours the CODE_SIGN_IDENTITY the Xcode template sets,
+          # so on a CI mac with no Apple account session it stops and
+          # demands a Development Team. Instead: let Flutter write its
+          # config, then drive xcodebuild ourselves with signing switched
+          # off outright. Sideloadly re-signs with your own Apple ID at
+          # install time, so an unsigned artifact is the goal here.
+          flutter build ios --config-only --release \
+            --dart-define=GEMINI_API_KEY=$GEMINI_API_KEY
+
+          DD="$PWD/build/ios_dd"
+          cd ios
+          xcodebuild \
+            -workspace Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath "$DD" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGN_ENTITLEMENTS="" \
+            PROVISIONING_PROFILE_SPECIFIER="" \
+            build
+          cd ..
 
           # Locate the built Runner.app (path differs by Flutter/Xcode version).
           APP=""
           for p in \
+            "build/ios_dd/Build/Products/Release-iphoneos/Runner.app" \
             "build/ios/iphoneos/Runner.app" \
             "build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app"; do
             if [ -d "$p" ]; then APP="$p"; break; fi
