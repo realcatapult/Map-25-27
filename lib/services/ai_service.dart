@@ -2,10 +2,6 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:cloud_functions/cloud_functions.dart';
 
-// Gitignored; CI writes it from $GEMINI_API_KEY, and locally you paste your
-// own key into it. ai_secrets.example.dart is the committed template.
-import 'ai_secrets.dart';
-
 /// A single message in the support conversation.
 class AiMessage {
   final String role; // 'user' or 'assistant'
@@ -49,12 +45,9 @@ class AiService {
   );
 
   /// The key actually used. A `--dart-define` wins when one was passed;
-  /// otherwise this falls back to the gitignored `ai_secrets.dart`, so a
-  /// plain `flutter run` works without remembering the flag.
-  ///
-  /// `ai_secrets.dart` is not in git, so CI generates it from the
-  /// GEMINI_API_KEY environment variable before building (see codemagic.yaml).
-  static const String _apiKey = _definedKey == '' ? geminiApiKey : _definedKey;
+  /// A missing key does not prevent the app from building; AI replies explain
+  /// that the feature needs configuration.
+  static const String _apiKey = _definedKey;
 
   static const String _model = 'gemini-2.5-flash';
 
