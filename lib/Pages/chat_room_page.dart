@@ -12,9 +12,13 @@ import 'package:login_ui/Pages/group_roles_page.dart';
 import 'package:login_ui/components/jarvis_avatar.dart';
 import 'package:login_ui/components/message_reactions.dart';
 import 'package:login_ui/components/member_list_sheet.dart';
+import 'package:login_ui/services/profile_cache.dart';
+import 'package:login_ui/services/message_alerts.dart';
 import 'package:login_ui/components/user_profile_sheet.dart';
 import 'package:login_ui/Pages/club_day_page.dart';
 import 'package:login_ui/Pages/club_stats_page.dart';
+import 'package:login_ui/Pages/join_requests_page.dart';
+import 'package:login_ui/services/join_request_service.dart';
 import 'package:login_ui/data/interests_catalog.dart';
 import 'package:login_ui/data/club_roles.dart';
 import 'package:login_ui/services/ai_service.dart';
@@ -64,10 +68,13 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
     }
   }
 
+  /// Real name where we have one. The cache resolves it in the background
+  /// and notifies, so a header that starts as the email's local part becomes
+  /// the person's actual name a moment later.
   String _displayName(String email) {
     if (Jarvis.isJarvis(email)) return Jarvis.displayName;
     if (!email.contains('@')) return email;
-    return email.split('@').first;
+    return ProfileCache.instance.nameFor(email);
   }
 
   String _formatTime(DateTime dt) {
@@ -1645,20 +1652,21 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
                   accent: themeColor,
                 ),
               ),
-              IconButton(
-                icon: const Icon(Icons.how_to_reg),
-                tooltip: 'Club Day',
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => ClubDayPage(
-                      groupId: widget.groupId,
-                      groupName: widget.groupName,
-                      isAdmin: canManageCheckIns,
+              if (canManageCheckIns)
+                IconButton(
+                  icon: const Icon(Icons.how_to_reg),
+                  tooltip: 'Club Day',
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ClubDayPage(
+                        groupId: widget.groupId,
+                        groupName: widget.groupName,
+                        isAdmin: canManageCheckIns,
+                      ),
                     ),
                   ),
                 ),
-              ),
               PopupMenuButton<String>(
                 icon: const Icon(Icons.more_vert),
                 tooltip: 'More',
@@ -1686,6 +1694,17 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
                         canManageSettings,
                       );
                       break;
+                    case 'requests':
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => JoinRequestsPage(
+                            groupId: widget.groupId,
+                            groupName: widget.groupName,
+                          ),
+                        ),
+                      );
+                      break;
                     case 'home':
                       Navigator.of(context).popUntil((r) => r.isFirst);
                       break;
@@ -1695,6 +1714,43 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
                   }
                 },
                 itemBuilder: (context) => [
+                  if (canManageSettings)
+                    PopupMenuItem(
+                      value: 'requests',
+                      child: ListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.how_to_reg_outlined),
+                        title: const Text('Join requests'),
+                        trailing: StreamBuilder<int>(
+                          stream: JoinRequestService().watchPendingCount(
+                            widget.groupId,
+                          ),
+                          builder: (context, s) {
+                            final n = s.data ?? 0;
+                            if (n == 0) return const SizedBox.shrink();
+                            return Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 7,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.red,
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: Text(
+                                '$n',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
                   if (canManageCheckIns)
                     const PopupMenuItem(
                       value: 'stats',
@@ -2000,6 +2056,10 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
                         return ListView.builder(
                           controller: _scrollController,
                           reverse: true,
+                          // A thumb-drag down the transcript puts the
+                          // keyboard away, as in Discord and iMessage.
+                          keyboardDismissBehavior:
+                              ScrollViewKeyboardDismissBehavior.onDrag,
                           padding: const EdgeInsets.all(16),
                           findChildIndexCallback: (key) {
                             if (key is! ValueKey<String>) return null;
@@ -2195,20 +2255,40 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
                                                 crossAxisAlignment:
                                                     CrossAxisAlignment.start,
                                                 children: [
+                                                  // The name is a link to the
+                                                  // person, as in Discord.
                                                   if (!isMe)
-                                                    Text(
-                                                      _displayName(senderEmail),
-                                                      style: TextStyle(
-                                                        fontSize: 10,
-                                                        color:
-                                                            Jarvis.isJarvis(
-                                                              senderEmail,
-                                                            )
-                                                            ? AppColors.brass
-                                                            : colorScheme
-                                                                  .onSurfaceVariant,
-                                                        fontWeight:
-                                                            FontWeight.bold,
+                                                    GestureDetector(
+                                                      onTap:
+                                                          Jarvis.isJarvis(
+                                                            senderEmail,
+                                                          )
+                                                          ? null
+                                                          : () => showUserProfile(
+                                                              context: context,
+                                                              email:
+                                                                  senderEmail,
+                                                              groupData:
+                                                                  groupData,
+                                                              accent:
+                                                                  themeColor,
+                                                            ),
+                                                      child: Text(
+                                                        _displayName(
+                                                          senderEmail,
+                                                        ),
+                                                        style: TextStyle(
+                                                          fontSize: 11,
+                                                          color:
+                                                              Jarvis.isJarvis(
+                                                                senderEmail,
+                                                              )
+                                                              ? AppColors.brass
+                                                              : colorScheme
+                                                                    .onSurfaceVariant,
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                        ),
                                                       ),
                                                     ),
                                                   if (!isMe)
@@ -2559,7 +2639,22 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    // Sender names arrive asynchronously; rebuild when they land so a header
+    // showing the email's local part becomes the real name.
+    ProfileCache.instance.addListener(_onProfilesChanged);
+    ActiveChat.enter('group:${widget.groupId}');
+  }
+
+  void _onProfilesChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
   void dispose() {
+    ActiveChat.leave('group:${widget.groupId}');
+    ProfileCache.instance.removeListener(_onProfilesChanged);
     _messageController.dispose();
     _scrollController.dispose();
     super.dispose();

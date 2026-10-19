@@ -29,6 +29,10 @@ class _LoginPageState extends State<LoginPage> {
         emailController.text.trim(),
         passwordController.text,
       );
+      // Accounts created before profiles were written automatically have no
+      // users document, which makes them invisible to member lists and
+      // friend lookups. Backfill the email once, on the way in.
+      await _authService.ensureProfileExists();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(

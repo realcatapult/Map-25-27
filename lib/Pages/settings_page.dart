@@ -5,6 +5,7 @@ import 'package:login_ui/services/auth_service.dart';
 import 'package:login_ui/services/theme_service.dart';
 import 'package:login_ui/components/interests_picker_dialog.dart';
 import 'package:login_ui/theme/app_theme.dart';
+import 'package:login_ui/services/profile_cache.dart';
 import 'package:login_ui/components/skeleton_loader.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
@@ -23,6 +24,7 @@ class _SettingsPageState extends State<SettingsPage> {
   final ImagePicker _imagePicker = ImagePicker();
   final TextEditingController _firstNameController = TextEditingController();
   final TextEditingController _lastNameController = TextEditingController();
+  final TextEditingController _bioController = TextEditingController();
 
   String? _profilePictureUrl;
   List<String> _interests = [];
@@ -47,6 +49,7 @@ class _SettingsPageState extends State<SettingsPage> {
         _profilePictureUrl = profilePic;
         _firstNameController.text = userData?['firstName'] ?? '';
         _lastNameController.text = userData?['lastName'] ?? '';
+        _bioController.text = userData?['bio'] ?? '';
         _interests = List<String>.from(
           userData?['interests'] ?? const <String>[],
         );
@@ -151,6 +154,11 @@ class _SettingsPageState extends State<SettingsPage> {
         _firstNameController.text.trim(),
         _lastNameController.text.trim(),
       );
+      await _chatService.updateCurrentUserBio(_bioController.text);
+      // Drop the cached copy so chat headers and profile cards pick up the
+      // new name and bio instead of serving what they loaded earlier.
+      final email = FirebaseAuth.instance.currentUser?.email;
+      if (email != null) ProfileCache.instance.invalidate(email);
 
       setState(() {
         _isSaving = false;
@@ -520,7 +528,20 @@ class _SettingsPageState extends State<SettingsPage> {
                 textCapitalization: TextCapitalization.words,
                 decoration: const InputDecoration(labelText: 'Last Name'),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _bioController,
+                maxLines: 3,
+                minLines: 2,
+                maxLength: 190,
+                textCapitalization: TextCapitalization.sentences,
+                decoration: const InputDecoration(
+                  labelText: 'Bio',
+                  hintText: 'A line or two about you',
+                  alignLabelWithHint: true,
+                ),
+              ),
+              const SizedBox(height: 8),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
@@ -545,6 +566,7 @@ class _SettingsPageState extends State<SettingsPage> {
   void dispose() {
     _firstNameController.dispose();
     _lastNameController.dispose();
+    _bioController.dispose();
     super.dispose();
   }
 }

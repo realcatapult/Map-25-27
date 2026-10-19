@@ -5,6 +5,7 @@ import 'package:login_ui/services/chat_service.dart';
 import 'package:login_ui/Pages/chat_room_page.dart';
 import 'package:login_ui/theme/app_theme.dart';
 import 'package:login_ui/components/skeleton_loader.dart';
+import 'package:login_ui/services/join_request_service.dart';
 
 // ── Placeholder demo data ──────────────────────────────────────────────────
 class DemoClub {
@@ -531,34 +532,71 @@ class ClubCard extends StatelessWidget {
                               style: TextStyle(color: AppColors.brass),
                             ),
                           )
-                        : ElevatedButton(
-                            onPressed: () async {
-                              try {
-                                await chatService.joinGroupById(groupId);
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text('You joined $name!'),
-                                    ),
-                                  );
-                                }
-                              } catch (e) {
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text(e.toString())),
-                                  );
-                                }
-                              }
+                        : StreamBuilder<JoinRequest?>(
+                            stream: JoinRequestService().watchMyRequest(
+                              groupId,
+                            ),
+                            builder: (context, reqSnap) {
+                              final req = reqSnap.data;
+                              final pending = req?.isPending ?? false;
+                              final declined = req?.status == 'declined';
+
+                              return ElevatedButton(
+                                onPressed: pending
+                                    ? () async {
+                                        await JoinRequestService().cancel(
+                                          groupId,
+                                        );
+                                      }
+                                    : () async {
+                                        final messenger = ScaffoldMessenger.of(
+                                          context,
+                                        );
+                                        try {
+                                          await JoinRequestService().request(
+                                            groupId,
+                                          );
+                                          messenger.showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                'Request sent to the officers of $name',
+                                              ),
+                                            ),
+                                          );
+                                        } catch (e) {
+                                          messenger.showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                e.toString().replaceFirst(
+                                                  'Exception: ',
+                                                  '',
+                                                ),
+                                              ),
+                                            ),
+                                          );
+                                        }
+                                      },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: pending
+                                      ? Theme.of(
+                                          context,
+                                        ).colorScheme.surfaceContainerHighest
+                                      : Theme.of(context).colorScheme.primary,
+                                ),
+                                child: Text(
+                                  pending
+                                      ? 'Requested'
+                                      : (declined ? 'Ask again' : 'Request'),
+                                  style: TextStyle(
+                                    color: pending
+                                        ? Theme.of(
+                                            context,
+                                          ).colorScheme.onSurfaceVariant
+                                        : Colors.white,
+                                  ),
+                                ),
+                              );
                             },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Theme.of(
-                                context,
-                              ).colorScheme.primary,
-                            ),
-                            child: const Text(
-                              'Join',
-                              style: TextStyle(color: Colors.white),
-                            ),
                           ),
                   ],
                 ),

@@ -6,6 +6,9 @@ import 'package:login_ui/services/chat_service.dart';
 import 'package:login_ui/theme/app_theme.dart';
 import 'package:login_ui/components/skeleton_loader.dart';
 import 'package:login_ui/components/jarvis_avatar.dart';
+import 'package:login_ui/components/user_profile_sheet.dart';
+import 'package:login_ui/services/profile_cache.dart';
+import 'package:login_ui/services/message_alerts.dart';
 import 'package:login_ui/services/ai_service.dart';
 
 class DirectMessagePage extends StatefulWidget {
@@ -28,6 +31,17 @@ class _DirectMessagePageState extends State<DirectMessagePage> {
   final ScrollController _scrollController = ScrollController();
   final AiService _aiService = AiService();
   bool _jarvisThinking = false;
+
+  @override
+  void initState() {
+    super.initState();
+    ProfileCache.instance.addListener(_onProfilesChanged);
+    ActiveChat.enter('dm:' + widget.threadId);
+  }
+
+  void _onProfilesChanged() {
+    if (mounted) setState(() {});
+  }
 
   /// Answers an "@jarvis ..." line in this thread.
   ///
@@ -102,9 +116,30 @@ class _DirectMessagePageState extends State<DirectMessagePage> {
       backgroundColor: Colors.transparent,
       appBar: AppBar(
         flexibleSpace: const GradientAppBarBackground(),
-        title: Text(
-          widget.otherEmail,
-          style: const TextStyle(color: Colors.white),
+        title: GestureDetector(
+          onTap: () =>
+              showUserProfile(context: context, email: widget.otherEmail),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                ProfileCache.instance.nameFor(widget.otherEmail),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              Text(
+                widget.otherEmail,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: Colors.white70, fontSize: 11),
+              ),
+            ],
+          ),
         ),
         iconTheme: const IconThemeData(color: Colors.white),
       ),
@@ -144,6 +179,8 @@ class _DirectMessagePageState extends State<DirectMessagePage> {
                       controller: _scrollController,
                       reverse: true,
                       padding: const EdgeInsets.all(16),
+                      keyboardDismissBehavior:
+                          ScrollViewKeyboardDismissBehavior.onDrag,
                       itemCount: ordered.length + (_jarvisThinking ? 1 : 0),
                       itemBuilder: (context, rawIndex) {
                         // Index 0 is the newest under reverse:true, so the
@@ -359,6 +396,8 @@ class _DirectMessagePageState extends State<DirectMessagePage> {
 
   @override
   void dispose() {
+    ActiveChat.leave('dm:' + widget.threadId);
+    ProfileCache.instance.removeListener(_onProfilesChanged);
     _messageController.dispose();
     _scrollController.dispose();
     super.dispose();
