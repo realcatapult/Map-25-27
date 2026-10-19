@@ -755,6 +755,19 @@ class ChatService {
   }
 
   // Update user data (first name, last name)
+  /// Saves the current user's bio. Capped because it is rendered in a
+  /// fixed-height card; a novel would simply be clipped.
+  Future<void> updateCurrentUserBio(String bio) async {
+    final currentUser = _auth.currentUser;
+    if (currentUser == null) throw Exception('Not logged in');
+
+    final trimmed = bio.trim();
+    await _firestore.collection('users').doc(currentUser.uid).set({
+      'email': currentUser.email,
+      'bio': trimmed.length > 190 ? trimmed.substring(0, 190) : trimmed,
+    }, SetOptions(merge: true));
+  }
+
   Future<void> updateUserData(String firstName, String lastName) async {
     final currentUser = _auth.currentUser;
     if (currentUser == null) throw Exception('Not logged in');
@@ -785,9 +798,22 @@ class ChatService {
     final data = doc.data();
     if (data == null) return true;
 
-    final seen = data['interestsOnboardingSeen'] as bool? ?? false;
-    final interests = List<String>.from(data['interests'] ?? const <String>[]);
-    return !seen || interests.isEmpty;
+    return !(data['interestsOnboardingSeen'] as bool? ?? false);
+  }
+
+  /// Records that the picker has been offered, whatever the person chose.
+  ///
+  /// Called as soon as the dialog closes, including on dismiss. Previously
+  /// only saving interests set this, so cancelling meant being asked again
+  /// on the next launch.
+  Future<void> markInterestsOnboardingSeen() async {
+    final currentUser = _auth.currentUser;
+    if (currentUser == null) return;
+
+    await _firestore.collection('users').doc(currentUser.uid).set({
+      'email': currentUser.email,
+      'interestsOnboardingSeen': true,
+    }, SetOptions(merge: true));
   }
 
   Future<void> updateCurrentUserInterests(List<String> interests) async {

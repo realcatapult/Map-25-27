@@ -59,7 +59,10 @@ class _HomePageState extends State<HomePage> {
   final Map<String, String> _groupNamesById = {};
   final Set<String> _enabledGroupIds = {};
   Set<String> _lastGroupIds = {};
-  bool _handledInterestsOnboarding = false;
+
+  /// Static so it survives a second HomePage State being created in the
+  /// same session, which an instance field would not.
+  static bool _handledInterestsOnboarding = false;
 
   @override
   void initState() {
@@ -86,6 +89,10 @@ class _HomePageState extends State<HomePage> {
       initialSelection: existingInterests,
       isOnboarding: true,
     );
+
+    // Marked straight away, whatever they chose. Asking once is the promise
+    // of onboarding; dismissing is an answer, not a postponement.
+    await _chatService.markInterestsOnboardingSeen();
 
     if (selected == null || selected.isEmpty) return;
 

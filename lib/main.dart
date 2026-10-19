@@ -13,6 +13,8 @@ import 'services/theme_service.dart';
 import 'theme/app_theme.dart';
 import 'components/unity_logo.dart';
 import 'components/skeleton_loader.dart';
+import 'components/message_alert_overlay.dart';
+import 'services/message_alerts.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -207,12 +209,16 @@ class _AuthGateState extends State<_AuthGate> {
 
         // Detect the logged-out -> logged-in transition.
         if (loggedIn && !_wasLoggedIn) {
+          MessageAlerts.instance.start(); // watch conversations
           _playedReveal = false; // arm the reveal for this fresh login
           _adminCheck = _chatService.isCurrentUserSchoolAdmin(); // once
           _landing = null; // rebuild landing with the fresh check
           _armReadyTracking(); // start watching for "app loaded"
         }
         if (!loggedIn) {
+          // Drop listeners and seen-history so the next account does not
+          // inherit another person's conversations.
+          MessageAlerts.instance.stop();
           _playedReveal = false;
           _adminCheck = null;
           _landing = null;
@@ -238,6 +244,7 @@ class _AuthGateState extends State<_AuthGate> {
           fit: StackFit.expand,
           children: [
             _landing!,
+            const MessageAlertOverlay(),
             if (_playedReveal)
               const SizedBox.shrink()
             else

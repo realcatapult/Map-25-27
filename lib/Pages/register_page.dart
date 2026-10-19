@@ -18,6 +18,8 @@ class RegisterPage extends StatefulWidget {
 
 class _RegisterPageState extends State<RegisterPage> {
   // text editing controllers
+  final TextEditingController firstNameController = TextEditingController();
+  final TextEditingController lastNameController = TextEditingController();
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
   final TextEditingController confirmPasswordController =
@@ -65,6 +67,8 @@ class _RegisterPageState extends State<RegisterPage> {
       await _authService.signUpWithEmailPassword(
         emailController.text.trim(),
         passwordController.text,
+        firstName: firstNameController.text.trim(),
+        lastName: lastNameController.text.trim(),
       );
 
       // Upload profile picture if selected
@@ -119,6 +123,8 @@ class _RegisterPageState extends State<RegisterPage> {
 
   @override
   void dispose() {
+    firstNameController.dispose();
+    lastNameController.dispose();
     emailController.dispose();
     passwordController.dispose();
     confirmPasswordController.dispose();
@@ -184,6 +190,22 @@ class _RegisterPageState extends State<RegisterPage> {
                     style: TextStyle(color: Colors.grey[600], fontSize: 12),
                   ),
                   const SizedBox(height: 25),
+
+                  // Name, so the person shows up as a name rather than an
+                  // email everywhere else in the app.
+                  MyTextField(
+                    controller: firstNameController,
+                    hintText: 'First name',
+                    obscureText: false,
+                  ),
+                  const SizedBox(height: 10),
+
+                  MyTextField(
+                    controller: lastNameController,
+                    hintText: 'Last name',
+                    obscureText: false,
+                  ),
+                  const SizedBox(height: 10),
 
                   // Email
                   MyTextField(

@@ -230,12 +230,44 @@ service cloud.firestore {
         }
       }
 
+      // --------------------------------------------------- join requests
+      // Document id is the applicant's email, so one person cannot queue up
+      // ten requests for the same club.
+      match /joinRequests/{applicant} {
+        // You can see your own; officers who manage settings see them all.
+        allow read: if signedIn() && (
+          applicant == myEmail()
+          || hasGroupPermission(groupId, 'manage_settings')
+          || isSchoolAdmin()
+        );
+
+        // You may only ask on your own behalf, and only as pending.
+        allow create: if signedIn()
+          && applicant == myEmail()
+          && request.resource.data.email == myEmail()
+          && request.resource.data.status == 'pending'
+          && !(myEmail() in groupData(groupId).members);
+
+        // Only an officer decides. The applicant cannot approve themselves.
+        allow update: if (
+          hasGroupPermission(groupId, 'manage_settings') || isSchoolAdmin()
+        ) && request.resource.data.status in ['approved', 'declined'];
+
+        // Withdrawing your own request, or an officer clearing the queue.
+        allow delete: if signedIn() && (
+          applicant == myEmail()
+          || hasGroupPermission(groupId, 'manage_settings')
+          || isSchoolAdmin()
+        );
+      }
+
       // ------------------------------------------------------- club days
       // A club day is one dated sign-in session, its id being the date
       // (2026-10-13), which is what makes "open today" idempotent.
       match /clubDays/{dateKey} {
-        // Members can see their club's attendance; school admins see any.
-        allow read: if isMember(groupId) || isSchoolAdmin();
+        // Officer business: a plain member cannot read the attendance data.
+        allow read: if hasGroupPermission(groupId, 'manage_check_ins')
+          || isSchoolAdmin();
         // Only roles with manage_check_ins start, reopen or close a day.
         allow create, update: if hasGroupPermission(groupId, 'manage_check_ins')
           || isSchoolAdmin();
@@ -247,7 +279,8 @@ service cloud.firestore {
                      .data.isOpen == true;
           }
 
-          allow read: if isMember(groupId) || isSchoolAdmin();
+          allow read: if hasGroupPermission(groupId, 'manage_check_ins')
+            || isSchoolAdmin();
 
           // The security-critical rule: a member cannot sign themselves in.
           // Only a club admin may write a row, only while the day is open,

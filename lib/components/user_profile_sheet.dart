@@ -133,6 +133,10 @@ class _UserProfileSheetState extends State<_UserProfileSheet> {
     final accent = _readable(banner, isDark);
     final name = FriendService.displayNameFrom(_profile, widget.email);
     final photoUrl = _profile?['profilePicture'] as String?;
+    final rawBio = _profile?['bio'];
+    final bio = (rawBio is String && rawBio.trim().isNotEmpty)
+        ? rawBio.trim()
+        : null;
     final role = widget.groupData == null
         ? null
         : _chat.groupRoleName(widget.groupData!, widget.email);
@@ -173,6 +177,15 @@ class _UserProfileSheetState extends State<_UserProfileSheet> {
                     widget.email,
                     style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
                   ),
+                  if (bio != null) ...[
+                    const SizedBox(height: 14),
+                    _label('ABOUT ME', cs),
+                    const SizedBox(height: 5),
+                    Text(
+                      bio,
+                      style: const TextStyle(fontSize: 13.5, height: 1.4),
+                    ),
+                  ],
                   if (role != null) ...[
                     const SizedBox(height: 14),
                     _label('ROLE', cs),
