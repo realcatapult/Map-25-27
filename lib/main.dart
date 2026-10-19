@@ -127,7 +127,7 @@ class MyApp extends StatelessWidget {
   }
 }
 
-/// Watches auth state, shows the Unity loading screen while resolving, and
+/// Watches auth state, shows the brand-mark loading screen while resolving, and
 /// plays the split-apart reveal exactly once when the user logs in.
 class _AuthGate extends StatefulWidget {
   const _AuthGate();

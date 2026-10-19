@@ -105,7 +105,8 @@ service cloud.firestore {
                  'publicRequestStatus', 'publicRequestSubmittedAt',
                  'publicReviewedAt', 'publicReviewedBy',
                  'publicRejectionReason', 'whoCanPost', 'themeColor',
-                 'themeIcon', 'bannerUrl', 'overview', 'keywords'
+                 'themeIcon', 'bannerUrl', 'overview', 'keywords',
+                 'roomNumber'
                ]))
         || (hasGroupPermission(groupId, 'manage_messages')
           && request.resource.data.diff(resource.data).affectedKeys()

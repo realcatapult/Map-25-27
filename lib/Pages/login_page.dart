@@ -64,7 +64,7 @@ class _LoginPageState extends State<LoginPage> {
                 children: [
                   const SizedBox(height: 40),
 
-                  // Company logo (Unity mark)
+                  // GroupApp brand mark
                   const _PulsingUnityLogo(size: 100),
                   const SizedBox(height: 18),
 
@@ -222,7 +222,7 @@ class _LoginPageState extends State<LoginPage> {
   }
 }
 
-/// The Unity logo with a gentle breathing pulse + soft rotation drift, for the
+/// The GroupApp logo with a gentle breathing pulse + soft rotation drift, for the
 /// login screen hero.
 class _PulsingUnityLogo extends StatefulWidget {
   final double size;

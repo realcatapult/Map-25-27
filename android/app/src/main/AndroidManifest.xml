@@ -11,7 +11,7 @@
         android:required="false"/>
 
     <application
-        android:label="login_ui"
+        android:label="GroupApp"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

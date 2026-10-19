@@ -22,6 +22,7 @@ class _CalendarEvent {
   final String description;
   final String groupId;
   final String groupName;
+  final String roomNumber;
   final DateTime date;
 
   const _CalendarEvent({
@@ -30,6 +31,7 @@ class _CalendarEvent {
     required this.description,
     required this.groupId,
     required this.groupName,
+    required this.roomNumber,
     required this.date,
   });
 }
@@ -57,6 +59,7 @@ class _HomePageState extends State<HomePage> {
   Map<DateTime, List<_CalendarEvent>> _eventsByDay = {};
   bool _isLoadingEvents = false;
   final Map<String, String> _groupNamesById = {};
+  final Map<String, String> _groupRoomsById = {};
   final Set<String> _enabledGroupIds = {};
   Set<String> _lastGroupIds = {};
 
@@ -155,19 +158,30 @@ class _HomePageState extends State<HomePage> {
 
   void _syncGroups(List<QueryDocumentSnapshot> groupDocs) {
     final groupIds = groupDocs.map((doc) => doc.id).toSet();
-    if (setEquals(groupIds, _lastGroupIds)) {
+    final groupIdsChanged = !setEquals(groupIds, _lastGroupIds);
+    final nextNames = <String, String>{};
+    final nextRooms = <String, String>{};
+    for (final doc in groupDocs) {
+      final data = doc.data() as Map<String, dynamic>;
+      nextNames[doc.id] = (data['name'] ?? 'Group').toString();
+      nextRooms[doc.id] = (data['roomNumber'] ?? '').toString().trim();
+    }
+    final groupInfoChanged =
+        !mapEquals(_groupNamesById, nextNames) ||
+        !mapEquals(_groupRoomsById, nextRooms);
+    if (!groupIdsChanged && !groupInfoChanged) {
       return;
     }
 
     _groupNamesById.clear();
-    for (final doc in groupDocs) {
-      final data = doc.data() as Map<String, dynamic>;
-      _groupNamesById[doc.id] = data['name'] ?? 'Group';
-    }
+    _groupNamesById.addAll(nextNames);
+    _groupRoomsById
+      ..clear()
+      ..addAll(nextRooms);
 
-    if (_enabledGroupIds.isEmpty) {
+    if (groupIdsChanged && _enabledGroupIds.isEmpty) {
       _enabledGroupIds.addAll(groupIds);
-    } else {
+    } else if (groupIdsChanged) {
       _enabledGroupIds.removeWhere((id) => !groupIds.contains(id));
       for (final id in groupIds) {
         _enabledGroupIds.add(id);
@@ -175,8 +189,10 @@ class _HomePageState extends State<HomePage> {
     }
 
     _lastGroupIds = groupIds;
-    _loadEventsForGroups(_enabledGroupIds.toList());
-    _loadNotifications(groupDocs);
+    if (groupIdsChanged || groupInfoChanged) {
+      _loadEventsForGroups(_enabledGroupIds.toList());
+      _loadNotifications(groupDocs);
+    }
   }
 
   Future<void> _loadNotifications(List<QueryDocumentSnapshot> groupDocs) async {
@@ -187,7 +203,11 @@ class _HomePageState extends State<HomePage> {
 
     final groups = groupDocs.map<Map<String, String>>((doc) {
       final data = doc.data() as Map<String, dynamic>;
-      return {'id': doc.id, 'name': (data['name'] ?? 'Group').toString()};
+      return {
+        'id': doc.id,
+        'name': (data['name'] ?? 'Group').toString(),
+        'roomNumber': (data['roomNumber'] ?? '').toString().trim(),
+      };
     }).toList();
 
     final items = await _chatService.getRecentNotifications(groups);
@@ -230,7 +250,9 @@ class _HomePageState extends State<HomePage> {
     if ((item['type'] as String?) == 'eventReminder') {
       final title = (item['title'] as String?) ?? 'Upcoming event';
       final description = (item['description'] as String?) ?? '';
-      return description.isEmpty ? title : '$title • $description';
+      final roomNumber = (item['roomNumber'] as String?)?.trim() ?? '';
+      final details = description.isEmpty ? title : '$title • $description';
+      return roomNumber.isEmpty ? details : '$details • Room $roomNumber';
     }
     final text = (item['text'] as String?) ?? '';
     final imageUrl = item['imageUrl'] as String?;
@@ -332,6 +354,7 @@ class _HomePageState extends State<HomePage> {
             description: description,
             groupId: groupId,
             groupName: groupName,
+            roomNumber: _groupRoomsById[groupId] ?? '',
             date: date,
           ),
         );
@@ -706,11 +729,30 @@ class _HomePageState extends State<HomePage> {
                   ),
                   const SizedBox(height: 3),
                   Text(
-                    '$dateLabel · ${event.groupName}',
+                    dateLabel,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
                   ),
+                  const SizedBox(height: 3),
+                  Text(
+                    'Hosted by ${event.groupName}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+                  ),
+                  if (event.roomNumber.isNotEmpty) ...[
+                    const SizedBox(height: 3),
+                    Text(
+                      'Room ${event.roomNumber}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
                   if (event.description.isNotEmpty) ...[
                     const SizedBox(height: 3),
                     Text(
@@ -973,11 +1015,23 @@ class _HomePageState extends State<HomePage> {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    event.groupName,
+                    'Hosted by ${event.groupName}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
                   ),
+                  if (event.roomNumber.isNotEmpty) ...[
+                    const SizedBox(height: 3),
+                    Text(
+                      'Room ${event.roomNumber}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
                   if (event.description.isNotEmpty) ...[
                     const SizedBox(height: 3),
                     Text(

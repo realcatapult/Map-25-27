@@ -26,6 +26,7 @@ This README reflects the current implementation in this repository.
   - edit group keywords
 - Direct messages between users
 - Group calendar events + home calendar aggregation/filtering
+- Clubs can set a meeting room, shown in discovery, calendar events, event posts, and reminders
 - Student-first home experience with upcoming events and a direct path to club discovery
 - Notifications panel on Home (latest group + DM activity)
 - Discover page with newcomer guidance, clearly labeled sample club ideas, and live Firestore clubs
