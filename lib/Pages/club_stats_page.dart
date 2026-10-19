@@ -367,11 +367,25 @@ class _ClubDaySheetPageState extends State<ClubDaySheetPage> {
           rows: [
             for (final row in r.rows)
               DataRow(
+                // A faint wash behind absent rows, so the block of people who
+                // came is visible before reading a single name.
+                color: row.present
+                    ? null
+                    : WidgetStatePropertyAll(
+                        cs.onSurface.withValues(alpha: 0.035),
+                      ),
                 cells: [
                   DataCell(
                     Text(
                       row.displayName,
-                      style: const TextStyle(fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                        fontWeight: row.present
+                            ? FontWeight.w700
+                            : FontWeight.w400,
+                        color: row.present
+                            ? cs.onSurface
+                            : cs.onSurfaceVariant.withValues(alpha: 0.75),
+                      ),
                     ),
                   ),
                   DataCell(
@@ -379,7 +393,9 @@ class _ClubDaySheetPageState extends State<ClubDaySheetPage> {
                       row.email,
                       style: TextStyle(
                         fontSize: 12.5,
-                        color: cs.onSurfaceVariant,
+                        color: cs.onSurfaceVariant.withValues(
+                          alpha: row.present ? 1 : 0.6,
+                        ),
                       ),
                     ),
                   ),
@@ -387,7 +403,15 @@ class _ClubDaySheetPageState extends State<ClubDaySheetPage> {
                   DataCell(
                     Text(
                       row.checkedInAt == null ? '—' : _clock(row.checkedInAt!),
-                      style: const TextStyle(fontSize: 13),
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: row.present
+                            ? FontWeight.w600
+                            : FontWeight.w400,
+                        color: row.present
+                            ? cs.onSurface
+                            : cs.onSurfaceVariant.withValues(alpha: 0.6),
+                      ),
                     ),
                   ),
                 ],
@@ -399,7 +423,8 @@ class _ClubDaySheetPageState extends State<ClubDaySheetPage> {
   }
 
   Widget _statusPill(bool present, String? method) {
-    final color = present ? Colors.green : Colors.orange;
+    final cs = Theme.of(context).colorScheme;
+    final color = present ? Colors.green : cs.onSurfaceVariant;
     final label = present
         ? (method == 'manual' ? 'Present (hand)' : 'Present')
         : 'Absent';

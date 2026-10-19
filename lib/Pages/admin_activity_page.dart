@@ -533,13 +533,15 @@ class _AdminActivityPageState extends State<AdminActivityPage> {
                                                               await _promptRejectionReason(
                                                                 demo['name']!,
                                                               );
-                                                          if (reason == null)
+                                                          if (reason == null) {
                                                             return;
+                                                          }
                                                           if (reason
                                                               .trim()
                                                               .isEmpty) {
-                                                            if (!mounted)
+                                                            if (!mounted) {
                                                               return;
+                                                            }
                                                             ScaffoldMessenger.of(
                                                               this.context,
                                                             ).showSnackBar(
@@ -719,8 +721,9 @@ class _AdminActivityPageState extends State<AdminActivityPage> {
                                                           await _promptRejectionReason(
                                                             name,
                                                           );
-                                                      if (reason == null)
+                                                      if (reason == null) {
                                                         return;
+                                                      }
                                                       if (reason
                                                           .trim()
                                                           .isEmpty) {

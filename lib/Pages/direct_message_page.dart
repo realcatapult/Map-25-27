@@ -36,7 +36,7 @@ class _DirectMessagePageState extends State<DirectMessagePage> {
   void initState() {
     super.initState();
     ProfileCache.instance.addListener(_onProfilesChanged);
-    ActiveChat.enter('dm:' + widget.threadId);
+    ActiveChat.enter('dm:${widget.threadId}');
   }
 
   void _onProfilesChanged() {
@@ -396,7 +396,7 @@ class _DirectMessagePageState extends State<DirectMessagePage> {
 
   @override
   void dispose() {
-    ActiveChat.leave('dm:' + widget.threadId);
+    ActiveChat.leave('dm:${widget.threadId}');
     ProfileCache.instance.removeListener(_onProfilesChanged);
     _messageController.dispose();
     _scrollController.dispose();

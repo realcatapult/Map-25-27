@@ -196,8 +196,9 @@ class GlassCard extends StatelessWidget {
       ),
     );
 
-    if (onTap == null)
+    if (onTap == null) {
       return Padding(padding: margin ?? EdgeInsets.zero, child: card);
+    }
     return Padding(
       padding: margin ?? EdgeInsets.zero,
       child: Material(
