@@ -245,8 +245,12 @@ class _FriendsPageState extends State<FriendsPage>
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(fontWeight: FontWeight.w600),
           ),
+          // The name is the identity here; an address under every row is
+          // noise, and it is on the profile for anyone who wants it.
           subtitle: Text(
-            other,
+            _profiles.containsKey(other) && _profiles[other] == null
+                ? 'No profile yet'
+                : 'Friend',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),

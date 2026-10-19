@@ -722,6 +722,29 @@ class ChatService {
     }).toList();
   }
 
+  /// Marks the thread read up to now for the current user.
+  ///
+  /// Stored as a `lastRead` map keyed by email on the thread document, not
+  /// per message: a receipt only has to answer "has it been seen", so one
+  /// timestamp per person is far cheaper than a readBy array on every
+  /// message, and it cannot drift out of sync.
+  ///
+  /// Read receipts are a direct-message feature only. In a club chat of
+  /// forty, "seen by" is noise rather than information.
+  Future<void> markDirectThreadRead(String threadId) async {
+    final currentUser = _auth.currentUser;
+    if (currentUser == null || currentUser.email == null) return;
+
+    await _firestore.collection('directMessages').doc(threadId).set({
+      'lastRead': {currentUser.email!: FieldValue.serverTimestamp()},
+    }, SetOptions(merge: true));
+  }
+
+  /// The thread document itself, for reading the other person's receipt.
+  Stream<DocumentSnapshot<Map<String, dynamic>>> watchDirectThread(
+    String threadId,
+  ) => _firestore.collection('directMessages').doc(threadId).snapshots();
+
   Stream<QuerySnapshot> getDirectMessageThreads() {
     final currentUser = _auth.currentUser;
     if (currentUser == null || currentUser.email == null) {

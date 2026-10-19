@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:login_ui/components/message_reactions.dart';
@@ -32,12 +34,30 @@ class _DirectMessagePageState extends State<DirectMessagePage> {
   final AiService _aiService = AiService();
   bool _jarvisThinking = false;
 
+  /// The other person's receipt, so we can mark our own messages seen.
+  DateTime? _theirLastRead;
+
   @override
   void initState() {
     super.initState();
     ProfileCache.instance.addListener(_onProfilesChanged);
     ActiveChat.enter('dm:${widget.threadId}');
+
+    // Being here is what "read" means.
+    _chatService.markDirectThreadRead(widget.threadId);
+
+    _threadSub = _chatService.watchDirectThread(widget.threadId).listen((doc) {
+      final map = doc.data()?['lastRead'];
+      if (map is! Map) return;
+      final theirs = map[widget.otherEmail];
+      if (!mounted) return;
+      setState(() {
+        _theirLastRead = theirs is Timestamp ? theirs.toDate() : null;
+      });
+    });
   }
+
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _threadSub;
 
   void _onProfilesChanged() {
     if (mounted) setState(() {});
@@ -132,11 +152,11 @@ class _DirectMessagePageState extends State<DirectMessagePage> {
                   fontWeight: FontWeight.w700,
                 ),
               ),
-              Text(
-                widget.otherEmail,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: Colors.white70, fontSize: 11),
+              // Address deliberately omitted: the header names the person,
+              // and their profile is one tap away if you need the rest.
+              const Text(
+                'Tap for profile',
+                style: TextStyle(color: Colors.white70, fontSize: 10.5),
               ),
             ],
           ),
@@ -239,6 +259,27 @@ class _DirectMessagePageState extends State<DirectMessagePage> {
                           );
                         }
 
+                        // Only the latest of my own messages carries a
+                        // receipt, and only once they have actually read it.
+                        final isMyLatest =
+                            isMe &&
+                            !ordered
+                                .take(index)
+                                .any(
+                                  (d) =>
+                                      (d.data()
+                                          as Map<
+                                            String,
+                                            dynamic
+                                          >)['senderEmail'] ==
+                                      currentUserEmail,
+                                );
+                        final seen =
+                            isMyLatest &&
+                            timestamp != null &&
+                            _theirLastRead != null &&
+                            !_theirLastRead!.isBefore(timestamp);
+
                         return Align(
                           alignment: isMe
                               ? Alignment.centerRight
@@ -308,15 +349,44 @@ class _DirectMessagePageState extends State<DirectMessagePage> {
                                       ),
                                       if (timestamp != null) ...[
                                         const SizedBox(height: 4),
-                                        Text(
-                                          _formatTime(timestamp),
-                                          style: TextStyle(
-                                            fontSize: 9,
-                                            color: isMe
-                                                ? colorScheme.onPrimary
-                                                      .withValues(alpha: 0.7)
-                                                : colorScheme.onSurfaceVariant,
-                                          ),
+                                        Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text(
+                                              _formatTime(timestamp),
+                                              style: TextStyle(
+                                                fontSize: 9,
+                                                color: isMe
+                                                    ? colorScheme.onPrimary
+                                                          .withValues(
+                                                            alpha: 0.7,
+                                                          )
+                                                    : colorScheme
+                                                          .onSurfaceVariant,
+                                              ),
+                                            ),
+                                            // Receipt rides the timestamp of
+                                            // my newest message only.
+                                            if (seen) ...[
+                                              const SizedBox(width: 5),
+                                              Icon(
+                                                Icons.done_all,
+                                                size: 11,
+                                                color: colorScheme.onPrimary
+                                                    .withValues(alpha: 0.85),
+                                              ),
+                                              const SizedBox(width: 2),
+                                              Text(
+                                                'Seen',
+                                                style: TextStyle(
+                                                  fontSize: 9,
+                                                  fontWeight: FontWeight.w700,
+                                                  color: colorScheme.onPrimary
+                                                      .withValues(alpha: 0.85),
+                                                ),
+                                              ),
+                                            ],
+                                          ],
                                         ),
                                       ],
                                     ],
@@ -396,6 +466,7 @@ class _DirectMessagePageState extends State<DirectMessagePage> {
 
   @override
   void dispose() {
+    _threadSub?.cancel();
     ActiveChat.leave('dm:${widget.threadId}');
     ProfileCache.instance.removeListener(_onProfilesChanged);
     _messageController.dispose();

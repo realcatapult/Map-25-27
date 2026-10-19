@@ -116,6 +116,9 @@ class MyApp extends StatelessWidget {
       valueListenable: ThemeService.themeMode,
       builder: (context, mode, _) {
         return MaterialApp(
+          // The message toast lives above every route, so it needs a
+          // navigator reachable from outside the route tree.
+          navigatorKey: appNavigatorKey,
           debugShowCheckedModeBanner: false,
           themeMode: mode,
           theme: _buildTheme(Brightness.light),

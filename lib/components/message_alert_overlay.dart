@@ -1,8 +1,13 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
+import '../Pages/chat_room_page.dart';
+import '../Pages/direct_message_page.dart';
 import '../services/message_alerts.dart';
 import '../services/profile_cache.dart';
+
+/// Lets the toast push a route even though it sits outside the route tree.
+final GlobalKey<NavigatorState> appNavigatorKey = GlobalKey<NavigatorState>();
 
 /// The toast that slides down when a message arrives while you are elsewhere.
 ///
@@ -44,6 +49,22 @@ class _MessageAlertOverlayState extends State<MessageAlertOverlay>
     MessageAlerts.instance.removeListener(_onAlert);
     _controller.dispose();
     super.dispose();
+  }
+
+  /// Opens the conversation the message came from.
+  void _open(AlertSource source) {
+    final nav = appNavigatorKey.currentState;
+    if (nav == null) return;
+    nav.push(
+      MaterialPageRoute(
+        builder: (_) => source.isGroup
+            ? ChatRoomPage(groupId: source.id, groupName: source.name)
+            : DirectMessagePage(
+                threadId: source.id,
+                otherEmail: source.otherEmail,
+              ),
+      ),
+    );
   }
 
   @override
@@ -90,7 +111,7 @@ class _MessageAlertOverlayState extends State<MessageAlertOverlay>
                     borderRadius: BorderRadius.circular(14),
                     onTap: () {
                       MessageAlerts.instance.dismiss();
-                      alert.onOpen();
+                      _open(alert.source);
                     },
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
@@ -141,6 +162,31 @@ class _MessageAlertOverlayState extends State<MessageAlertOverlay>
                                     height: 1.3,
                                     color: cs.onSurfaceVariant,
                                   ),
+                                ),
+                                const SizedBox(height: 3),
+                                Row(
+                                  children: [
+                                    Icon(
+                                      alert.source.isGroup
+                                          ? Icons.groups
+                                          : Icons.alternate_email,
+                                      size: 11,
+                                      color: cs.primary,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Expanded(
+                                      child: Text(
+                                        alert.source.label,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600,
+                                          color: cs.primary,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),

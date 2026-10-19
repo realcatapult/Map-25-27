@@ -347,7 +347,20 @@ service cloud.firestore {
         && (resource == null || myEmail() in participants());
       allow create: if signedIn()
         && myEmail() in request.resource.data.participants;
-      allow update: if signedIn() && myEmail() in participants();
+      // A participant may update the thread, but a read receipt is only
+      // ever your own: without this, one person could mark a message as
+      // seen on the other's behalf.
+      allow update: if signedIn() && myEmail() in participants() && (
+        !request.resource.data.diff(resource.data).affectedKeys()
+            .hasAny(['lastRead'])
+        || (
+          !('lastRead' in resource.data)
+            ? request.resource.data.lastRead.keys().hasOnly([myEmail()])
+            : request.resource.data.lastRead
+                .diff(resource.data.lastRead)
+                .affectedKeys().hasOnly([myEmail()])
+        )
+      );
       allow delete: if false;
 
       match /messages/{messageId} {

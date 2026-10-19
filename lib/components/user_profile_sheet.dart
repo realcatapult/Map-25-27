@@ -46,6 +46,10 @@ class _UserProfileSheetState extends State<_UserProfileSheet> {
   bool _loading = true;
   bool _busy = false;
 
+  /// Addresses stay hidden until asked for. On a profile you reach from a
+  /// club member list, the useful identity is the name and the role.
+  bool _showEmail = false;
+
   @override
   void initState() {
     super.initState();
@@ -173,10 +177,26 @@ class _UserProfileSheetState extends State<_UserProfileSheet> {
                     ),
                   ),
                   const SizedBox(height: 2),
-                  Text(
-                    widget.email,
-                    style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
-                  ),
+                  if (_showEmail)
+                    Text(
+                      widget.email,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: cs.onSurfaceVariant,
+                      ),
+                    )
+                  else
+                    GestureDetector(
+                      onTap: () => setState(() => _showEmail = true),
+                      child: Text(
+                        'Show email',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          color: accent,
+                        ),
+                      ),
+                    ),
                   if (bio != null) ...[
                     const SizedBox(height: 14),
                     _label('ABOUT ME', cs),

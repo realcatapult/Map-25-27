@@ -22,19 +22,44 @@ class ActiveChat {
   static bool isOpen(String id) => _id == id;
 }
 
+/// Where a message came from, and enough to reopen it.
+class AlertSource {
+  const AlertSource({
+    required this.isGroup,
+    required this.id,
+    required this.name,
+    this.otherEmail = '',
+  });
+
+  /// True for a club chat, false for a direct message.
+  final bool isGroup;
+
+  /// groupId for a club, threadId for a direct message.
+  final String id;
+
+  /// Club name, or the other person's display name.
+  final String name;
+
+  /// Only set for a direct message, which needs it to open the thread.
+  final String otherEmail;
+
+  /// The line under the message that answers "where was this?".
+  String get label => isGroup ? 'in $name' : 'Direct message';
+}
+
 /// A single incoming message worth announcing.
 class MessageAlert {
   const MessageAlert({
     required this.title,
     required this.body,
     required this.senderEmail,
-    required this.onOpen,
+    required this.source,
   });
 
   final String title;
   final String body;
   final String senderEmail;
-  final VoidCallback onOpen;
+  final AlertSource source;
 }
 
 /// Watches the user's conversations and announces messages that arrive while
@@ -131,7 +156,12 @@ class MessageAlerts extends ChangeNotifier {
                 title: ProfileCache.instance.nameFor(sender),
                 body: (d['text'] as String?) ?? '',
                 senderEmail: sender,
-                onOpen: () {},
+                source: AlertSource(
+                  isGroup: false,
+                  id: threadId,
+                  name: ProfileCache.instance.nameFor(sender),
+                  otherEmail: sender,
+                ),
               ),
             );
           }),
@@ -164,10 +194,14 @@ class MessageAlerts extends ChangeNotifier {
             final who = ProfileCache.instance.nameFor(sender);
             _raise(
               MessageAlert(
-                title: groupName,
-                body: '$who: ${(d['text'] as String?) ?? ''}',
+                title: who,
+                body: (d['text'] as String?) ?? '',
                 senderEmail: sender,
-                onOpen: () {},
+                source: AlertSource(
+                  isGroup: true,
+                  id: groupId,
+                  name: groupName,
+                ),
               ),
             );
           }),
