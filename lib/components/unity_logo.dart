@@ -3,7 +3,12 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:login_ui/theme/app_theme.dart';
 
-/// Displays the GroupApp brand mark on a light tile for contrast.
+/// Displays the GroupApp brand mark on a dark tile.
+///
+/// The mark has white elements on a transparent background, so it needs a
+/// dark backing to be legible — on the old ivory tile the white simply
+/// disappeared. Navy also matches the app bar gradient the small version
+/// sits inside.
 class UnityLogo extends StatelessWidget {
   final double size;
 
@@ -31,8 +36,14 @@ class UnityLogo extends StatelessWidget {
           scale: 1 - 0.55 * explode,
           child: DecoratedBox(
             decoration: BoxDecoration(
-              color: AppColors.bgLight,
+              color: AppColors.navyMid,
               borderRadius: BorderRadius.circular(size * 0.22),
+              // A hairline edge so the navy tile still reads as a tile when
+              // it sits on the navy app-bar gradient.
+              border: Border.all(
+                color: AppColors.brass.withValues(alpha: 0.35),
+                width: size * 0.012,
+              ),
             ),
             child: Padding(
               padding: EdgeInsets.all(size * 0.025),
@@ -169,7 +180,8 @@ class _UnityRevealOverlayState extends State<UnityRevealOverlay>
     if (_done) return const SizedBox.shrink();
 
     return IgnorePointer(
-      // The light background keeps the navy portion of the mark visible.
+      // Navy backdrop; the mark's tile is one step lighter so it reads as
+      // a tile rather than merging into this.
       child: ColoredBox(
         color: AppColors.navy,
         child: RepaintBoundary(
