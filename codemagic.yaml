@@ -63,11 +63,6 @@ workflows:
           flutter pub get
       - name: Install CocoaPods dependencies
         script: |
-          # Pin CocoaPods. Newer Flutter channels auto-migrate the
-          # project to Swift Package Manager mid-build, which rewrites
-          # the Podfile after pod install has already run -- and
-          # mobile_scanner (the QR check-in scanner) has no SPM support.
-          flutter config --no-enable-swift-package-manager
           cd ios
           pod install --repo-update
           cd ..
