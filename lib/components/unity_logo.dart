@@ -3,11 +3,12 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:login_ui/theme/app_theme.dart';
 
-/// Displays the GroupApp brand mark.
+/// Displays the GroupApp brand mark on a dark tile.
 ///
-/// This is the same artwork as the home-screen app icon, which carries its
-/// own ivory backing, so the mark needs no tile behind it — it is simply
-/// clipped to the rounded square the launcher icon already reads as.
+/// The mark has white elements on a transparent background, so it needs a
+/// dark backing to be legible — on the old ivory tile the white simply
+/// disappeared. Navy also matches the app bar gradient the small version
+/// sits inside.
 class UnityLogo extends StatelessWidget {
   final double size;
 
@@ -33,16 +34,24 @@ class UnityLogo extends StatelessWidget {
         opacity: (assembly * (1 - explode)).clamp(0.0, 1.0),
         child: Transform.scale(
           scale: 1 - 0.55 * explode,
-          // Same corner radius iOS applies to the home-screen icon, so the
-          // in-app mark and the installed app read as one thing.
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(size * 0.22),
-            child: Image.asset(
-              'images/logo.png',
-              fit: BoxFit.cover,
-              semanticLabel: 'GroupApp logo',
-              // Decode at display size; the source is a 1024px icon.
-              cacheWidth: (size * 3).round(),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: AppColors.navyMid,
+              borderRadius: BorderRadius.circular(size * 0.22),
+              // A hairline edge so the navy tile still reads as a tile when
+              // it sits on the navy app-bar gradient.
+              border: Border.all(
+                color: AppColors.brass.withValues(alpha: 0.35),
+                width: size * 0.012,
+              ),
+            ),
+            child: Padding(
+              padding: EdgeInsets.all(size * 0.025),
+              child: Image.asset(
+                'images/logo.png',
+                fit: BoxFit.contain,
+                semanticLabel: 'GroupApp logo',
+              ),
             ),
           ),
         ),
