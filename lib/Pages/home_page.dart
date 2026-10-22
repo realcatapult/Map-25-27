@@ -256,6 +256,7 @@ class _HomePageState extends State<HomePage> {
     }
     final text = (item['text'] as String?) ?? '';
     final imageUrl = item['imageUrl'] as String?;
+    if (item['unsent'] == true) return 'Message unsent';
     if (text.isNotEmpty) return text;
     if (imageUrl != null) return 'Sent an image';
     return 'New message';

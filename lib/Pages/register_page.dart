@@ -5,6 +5,7 @@ import 'package:login_ui/services/auth_service.dart';
 import 'package:login_ui/services/chat_service.dart';
 import 'package:login_ui/theme/app_theme.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:login_ui/components/image_source_sheet.dart';
 import 'dart:io';
 
 class RegisterPage extends StatefulWidget {
@@ -111,8 +112,15 @@ class _RegisterPageState extends State<RegisterPage> {
   }
 
   void _pickProfilePicture() async {
+    final source = await showImageSourceSheet(context);
+    if (source == null) return;
+
     final XFile? image = await _imagePicker.pickImage(
-      source: ImageSource.gallery,
+      source: source,
+      preferredCameraDevice: CameraDevice.front,
+      maxWidth: 512,
+      maxHeight: 512,
+      imageQuality: 85,
     );
     if (image != null) {
       setState(() {

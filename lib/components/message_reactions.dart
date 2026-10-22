@@ -188,6 +188,21 @@ class _Pill extends StatelessWidget {
   }
 }
 
+/// An extra choice shown under the emoji row, such as Unsend.
+class MessageAction {
+  const MessageAction({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.destructive = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool destructive;
+}
+
 /// The long-press picker: a floating row of emoji anchored to the message.
 ///
 /// Opens as a popup rather than inline so it never reflows the transcript
@@ -197,6 +212,7 @@ Future<void> showReactionPicker({
   required Offset globalPosition,
   required Set<String> selected,
   required ValueChanged<String> onPick,
+  List<MessageAction> actions = const [],
 }) async {
   HapticFeedback.mediumImpact();
 
@@ -204,7 +220,7 @@ Future<void> showReactionPicker({
   final screen = overlay?.size ?? MediaQuery.of(context).size;
 
   const rowWidth = 300.0;
-  const rowHeight = 54.0;
+  final rowHeight = 54.0 + (actions.isEmpty ? 0 : 6 + 44.0 * actions.length);
 
   // Keep the row on screen when the message is near an edge, and place it
   // above the touch point so the finger is not covering the choices.
@@ -242,12 +258,27 @@ Future<void> showReactionPicker({
               alignment: Alignment.bottomCenter,
               child: FadeTransition(
                 opacity: curved,
-                child: _PickerRow(
-                  selected: selected,
-                  onPick: (emoji) {
-                    Navigator.of(context).pop();
-                    onPick(emoji);
-                  },
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _PickerRow(
+                      selected: selected,
+                      onPick: (emoji) {
+                        Navigator.of(context).pop();
+                        onPick(emoji);
+                      },
+                    ),
+                    if (actions.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      _ActionList(
+                        actions: actions,
+                        onTap: (action) {
+                          Navigator.of(context).pop();
+                          action.onTap();
+                        },
+                      ),
+                    ],
+                  ],
                 ),
               ),
             ),
@@ -315,6 +346,54 @@ class _PickerRow extends StatelessWidget {
   }
 }
 
+class _ActionList extends StatelessWidget {
+  const _ActionList({required this.actions, required this.onTap});
+
+  final List<MessageAction> actions;
+  final ValueChanged<MessageAction> onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Material(
+      color: isDark ? cs.surfaceContainerHigh : Colors.white,
+      borderRadius: BorderRadius.circular(14),
+      elevation: 6,
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: actions.map((action) {
+          final color = action.destructive ? cs.error : cs.onSurface;
+          return InkWell(
+            onTap: () => onTap(action),
+            child: SizedBox(
+              height: 44,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  children: [
+                    Icon(action.icon, size: 20, color: color),
+                    const SizedBox(width: 12),
+                    Text(
+                      action.label,
+                      style: TextStyle(
+                        color: color,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
+
 /// Wraps a message bubble with the reaction gestures.
 ///
 /// Long press opens the picker; double tap applies the heart. Both are
@@ -328,7 +407,11 @@ class ReactableMessage extends StatelessWidget {
     required this.onToggle,
     this.onLongPressExtra,
     this.alignEnd = false,
+    this.actions = const [],
   });
+
+  /// Shown under the emoji row on long press.
+  final List<MessageAction> actions;
 
   final Widget child;
   final List<String> reactionKeys;
@@ -357,6 +440,7 @@ class ReactableMessage extends StatelessWidget {
         globalPosition: details.globalPosition,
         selected: MessageReactions.myEmojis(reactionKeys, currentUserEmail),
         onPick: onToggle,
+        actions: actions,
       ),
       child: Stack(
         clipBehavior: Clip.none,

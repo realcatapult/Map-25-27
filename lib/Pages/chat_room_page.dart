@@ -856,7 +856,13 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
 
   Future<void> _pickImage(ImageSource source) async {
     try {
-      final image = await _imagePicker.pickImage(source: source);
+      // Phone photos are often 5MB+; this keeps uploads quick and cheap.
+      final image = await _imagePicker.pickImage(
+        source: source,
+        maxWidth: 1600,
+        maxHeight: 1600,
+        imageQuality: 80,
+      );
       if (image == null) return;
       setState(() => _isSending = true);
 
@@ -1082,13 +1088,15 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
     required int replyCount,
     required bool canModerateMessages,
   }) async {
+    // An unsent message is only a placeholder; there is nothing to act on.
+    if (message['unsent'] == true) return;
+
+    final myEmail = FirebaseAuth.instance.currentUser?.email ?? '';
     final reactionKeys = List<String>.from(
       message['reactions'] ?? const <String>[],
     );
-    final mine = MessageReactions.myEmojis(
-      reactionKeys,
-      FirebaseAuth.instance.currentUser?.email ?? '',
-    );
+    final mine = MessageReactions.myEmojis(reactionKeys, myEmail);
+    final isMyMessage = myEmail.isNotEmpty && message['senderEmail'] == myEmail;
 
     showModalBottomSheet(
       context: context,
@@ -1164,10 +1172,76 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
                   );
                 },
               ),
+            if (isMyMessage)
+              ListTile(
+                leading: Icon(
+                  Icons.undo,
+                  color: Theme.of(context).colorScheme.error,
+                ),
+                title: Text(
+                  'Unsend',
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  _unsendMessage(messageId);
+                },
+              ),
           ],
         ),
       ),
     );
+  }
+
+  Widget _buildUnsentBubble(String label, ColorScheme colorScheme) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: colorScheme.onSurfaceVariant,
+          fontSize: 13,
+          fontStyle: FontStyle.italic,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _unsendMessage(String messageId) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Unsend message?'),
+        content: const Text(
+          'This removes the message for everyone in the chat.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Unsend'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+
+    try {
+      await _chatService.unsendMessage(widget.groupId, messageId);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Could not unsend: $e')));
+    }
   }
 
   Future<void> _leaveGroup() async {
@@ -1300,9 +1374,12 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
   Widget _buildReplyPreview(
     Map<String, dynamic> message,
     Color textColor,
-    Color mutedColor,
-  ) {
-    final replyText = (message['replyToText'] as String?) ?? '';
+    Color mutedColor, {
+    bool originalUnsent = false,
+  }) {
+    final replyText = originalUnsent
+        ? 'Message unsent'
+        : (message['replyToText'] as String?) ?? '';
     final replySender = (message['replyToSender'] as String?) ?? '';
     if (replyText.isEmpty && replySender.isEmpty) {
       return const SizedBox.shrink();
@@ -2035,6 +2112,15 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
                         final allMessages =
                             snapshot.data?.docs ??
                             const <QueryDocumentSnapshot>[];
+                        // A reply stores a copy of the text it answers, so
+                        // that copy must be hidden once the original is unsent.
+                        final unsentIds = {
+                          for (final doc in allMessages)
+                            if ((doc.data()
+                                    as Map<String, dynamic>)['unsent'] ==
+                                true)
+                              doc.id,
+                        };
                         final messages = _filteredMessages(allMessages);
                         if (messages.isEmpty) {
                           return Center(
@@ -2170,6 +2256,21 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
                                 ? onThemeColor.withValues(alpha: 0.72)
                                 : colorScheme.onSurfaceVariant;
 
+                            if (message['unsent'] == true) {
+                              return Align(
+                                key: ValueKey(messageId),
+                                alignment: isMe
+                                    ? Alignment.centerRight
+                                    : Alignment.centerLeft,
+                                child: _buildUnsentBubble(
+                                  isMe
+                                      ? 'You unsent a message'
+                                      : '${_displayName(senderEmail)} unsent a message',
+                                  colorScheme,
+                                ),
+                              );
+                            }
+
                             return AnimatedEntrance(
                               key: ValueKey(messageId),
                               child: Align(
@@ -2298,6 +2399,10 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
                                                       message,
                                                       bubbleTextColor,
                                                       bubbleMutedColor,
+                                                      originalUnsent: unsentIds
+                                                          .contains(
+                                                            message['replyToMessageId'],
+                                                          ),
                                                     ),
                                                   if (isClubPost)
                                                     _buildClubPostCard(

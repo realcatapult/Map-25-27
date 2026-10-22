@@ -47,6 +47,25 @@ service cloud.firestore {
     // verifyAdminSignupCode, and the users/{uid}.schoolAdmin field that the
     // app itself falls back to (ChatService.isCurrentUserSchoolAdmin). Only
     // checking the claim would lock out an admin promoted via the field.
+    // Unsending: the sender may blank their own message into a placeholder.
+    // It cannot be used to edit the text, since the text must come out empty,
+    // and once unsent it stays unsent.
+    function isUnsendBySender() {
+      let after = request.resource.data;
+      return signedIn()
+        && resource.data.senderEmail == myEmail()
+        && after.unsent == true
+        && after.text == ''
+        && !('imageUrl' in after)
+        && !('file' in after)
+        && !('poll' in after)
+        && after.reactions.size() == 0
+        && after.diff(resource.data).affectedKeys().hasOnly([
+             'unsent', 'unsentAt', 'text', 'imageUrl', 'file', 'poll',
+             'reactions'
+           ]);
+    }
+
     function isSchoolAdmin() {
       return signedIn() && (
         request.auth.token.schoolAdmin == true
@@ -165,7 +184,7 @@ service cloud.firestore {
         // writable by members — but nothing else about a message is, which
         // keeps someone from editing another person's text after the fact.
         allow update: if hasGroupPermission(groupId, 'manage_messages')
-          || isSchoolAdmin() || (
+          || isSchoolAdmin() || isUnsendBySender() || (
           isMember(groupId)
           && request.resource.data.diff(resource.data).affectedKeys()
                .hasOnly(['reactions', 'poll'])
@@ -377,11 +396,12 @@ service cloud.firestore {
           && (request.resource.data.senderEmail == myEmail()
               || request.resource.data.senderEmail == 'jarvis@assistant.ai');
         // Reactions are the only edit a participant may make; the message
-        // text itself stays immutable.
+        // text itself stays immutable, apart from the sender unsending it.
         allow update: if signedIn()
           && myEmail() in threadParticipants()
-          && request.resource.data.diff(resource.data).affectedKeys()
-               .hasOnly(['reactions']);
+          && (request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly(['reactions'])
+            || isUnsendBySender());
         allow delete: if false;
       }
     }

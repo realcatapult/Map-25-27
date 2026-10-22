@@ -1,0 +1,91 @@
+rules_version = '2';
+
+// GroupApp Storage rules. One match block per folder ChatService uploads to.
+//
+// Chat uploads put the uploader's uid in the file name
+// (`<millis>_<uid>.jpg`), which is how "only the sender may delete it"
+// is checked when a message is unsent.
+//
+// Membership is read from Firestore, so the first deploy will ask to let
+// Storage read Firestore; accept it.
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function myEmail() {
+      return request.auth.token.email;
+    }
+
+    function isImageUnder(mb) {
+      return request.resource.contentType.matches('image/.*')
+        && request.resource.size < mb * 1024 * 1024;
+    }
+
+    function uploadedByMe(fileName) {
+      return fileName.matches('[0-9]+_' + request.auth.uid + '([.]jpg|_.*)');
+    }
+
+    function isGroupMember(groupId) {
+      return myEmail() in firestore.get(
+        /databases/(default)/documents/groups/$(groupId)).data.members;
+    }
+
+    function isDmParticipant(threadId) {
+      return myEmail() in firestore.get(
+        /databases/(default)/documents/directMessages/$(threadId)).data.participants;
+    }
+
+    // ------------------------------------------------------ profile pictures
+    // One file per user, named after their uid.
+    match /profile_pictures/{fileName} {
+      allow read: if signedIn();
+      allow create, update: if signedIn()
+        && fileName == request.auth.uid + '.jpg'
+        && isImageUnder(5);
+      allow delete: if signedIn() && fileName == request.auth.uid + '.jpg';
+    }
+
+    // ------------------------------------------------------ group chat images
+    match /chat_images/{groupId}/{fileName} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && uploadedByMe(fileName)
+        && isGroupMember(groupId)
+        && isImageUnder(10);
+      allow delete: if signedIn() && uploadedByMe(fileName);
+    }
+
+    // ------------------------------------------------------- group chat files
+    match /chat_files/{groupId}/{fileName} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && uploadedByMe(fileName)
+        && isGroupMember(groupId)
+        && request.resource.size < 25 * 1024 * 1024;
+      allow delete: if signedIn() && uploadedByMe(fileName);
+    }
+
+    // -------------------------------------------------- direct message images
+    match /dm_images/{threadId}/{fileName} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && uploadedByMe(fileName)
+        && isDmParticipant(threadId)
+        && isImageUnder(10);
+      allow delete: if signedIn() && uploadedByMe(fileName);
+    }
+
+    // ---------------------------------------------------------- group banners
+    // Any member may upload; firestore.rules decides who can actually set
+    // the group's bannerUrl to point at it.
+    match /group_banners/{groupId}/{fileName} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && isGroupMember(groupId)
+        && isImageUnder(10);
+    }
+  }
+}

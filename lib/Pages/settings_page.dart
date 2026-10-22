@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:login_ui/services/chat_service.dart';
 import 'package:login_ui/services/auth_service.dart';
 import 'package:login_ui/services/theme_service.dart';
+import 'package:login_ui/components/image_source_sheet.dart';
 import 'package:login_ui/components/interests_picker_dialog.dart';
 import 'package:login_ui/theme/app_theme.dart';
 import 'package:login_ui/services/profile_cache.dart';
@@ -95,9 +96,13 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _pickAndUploadProfilePicture() async {
+    final source = await showImageSourceSheet(context);
+    if (source == null) return;
+
     try {
       final XFile? image = await _imagePicker.pickImage(
-        source: ImageSource.gallery,
+        source: source,
+        preferredCameraDevice: CameraDevice.front,
         maxWidth: 512,
         maxHeight: 512,
         imageQuality: 85,

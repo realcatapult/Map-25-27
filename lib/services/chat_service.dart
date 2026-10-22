@@ -231,15 +231,91 @@ class ChatService {
 
   // Upload image to Firebase Storage and return URL
   Future<String> uploadImage(File imageFile, String groupId) async {
+    return _uploadChatImage(imageFile, 'chat_images/$groupId');
+  }
+
+  /// Same as [uploadImage], for a direct-message thread.
+  Future<String> uploadDirectMessageImage(
+    File imageFile,
+    String threadId,
+  ) async {
+    return _uploadChatImage(imageFile, 'dm_images/$threadId');
+  }
+
+  /// The uploader's uid is part of the file name, which is what lets
+  /// storage.rules allow only the sender to delete it on unsend.
+  Future<String> _uploadChatImage(File imageFile, String folder) async {
     final currentUser = _auth.currentUser;
     if (currentUser == null) throw Exception('Not logged in');
 
     final fileName =
         '${DateTime.now().millisecondsSinceEpoch}_${currentUser.uid}.jpg';
-    final ref = _storage.ref().child('chat_images/$groupId/$fileName');
+    final ref = _storage.ref().child('$folder/$fileName');
 
-    await ref.putFile(imageFile);
+    await ref.putFile(imageFile, SettableMetadata(contentType: 'image/jpeg'));
     return await ref.getDownloadURL();
+  }
+
+  /// Unsends one of your own group messages.
+  Future<void> unsendMessage(String groupId, String messageId) {
+    return _unsend(
+      _firestore
+          .collection('groups')
+          .doc(groupId)
+          .collection('messages')
+          .doc(messageId),
+    );
+  }
+
+  /// Unsends one of your own direct messages.
+  Future<void> unsendDirectMessage(String threadId, String messageId) {
+    return _unsend(
+      _firestore
+          .collection('directMessages')
+          .doc(threadId)
+          .collection('messages')
+          .doc(messageId),
+    );
+  }
+
+  /// The message stays as an "unsent" placeholder rather than being deleted,
+  /// so replies that point at it and the thread's order still make sense.
+  /// Its content is wiped, and any attached picture or file is removed from
+  /// Storage. firestore.rules lets only the sender make this change.
+  Future<void> _unsend(DocumentReference<Map<String, dynamic>> ref) async {
+    final currentUser = _auth.currentUser;
+    if (currentUser == null || currentUser.email == null) {
+      throw Exception('Not logged in');
+    }
+
+    final data = (await ref.get()).data();
+    if (data == null) throw Exception('Message not found');
+    if (data['senderEmail'] != currentUser.email) {
+      throw Exception('You can only unsend your own messages');
+    }
+    if (data['unsent'] == true) return;
+
+    await ref.update({
+      'unsent': true,
+      'unsentAt': FieldValue.serverTimestamp(),
+      'text': '',
+      'imageUrl': FieldValue.delete(),
+      'file': FieldValue.delete(),
+      'poll': FieldValue.delete(),
+      'reactions': const <String>[],
+    });
+
+    // Best effort: the message is already gone from the chat, so a file that
+    // fails to delete is only wasted storage, not a visible problem.
+    final file = data['file'];
+    for (final url in [
+      data['imageUrl'],
+      if (file is Map) file['url'],
+    ].whereType<String>()) {
+      try {
+        await _storage.refFromURL(url).delete();
+      } catch (_) {}
+    }
   }
 
   Future<Map<String, dynamic>> uploadGroupFile(
@@ -276,7 +352,7 @@ class ChatService {
     final fileName = '${currentUser.uid}.jpg';
     final ref = _storage.ref().child('profile_pictures/$fileName');
 
-    await ref.putFile(imageFile);
+    await ref.putFile(imageFile, SettableMetadata(contentType: 'image/jpeg'));
     return await ref.getDownloadURL();
   }
 
@@ -461,7 +537,7 @@ class ChatService {
 
     final fileName = '${DateTime.now().millisecondsSinceEpoch}_banner.jpg';
     final ref = _storage.ref().child('group_banners/$groupId/$fileName');
-    await ref.putFile(imageFile);
+    await ref.putFile(imageFile, SettableMetadata(contentType: 'image/jpeg'));
     return await ref.getDownloadURL();
   }
 
@@ -631,7 +707,11 @@ class ChatService {
         .snapshots();
   }
 
-  Future<void> sendDirectMessage(String threadId, String message) async {
+  Future<void> sendDirectMessage(
+    String threadId,
+    String message, {
+    String? imageUrl,
+  }) async {
     final currentUser = _auth.currentUser;
     if (currentUser == null) throw Exception('Not logged in');
     if (currentUser.email == null) throw Exception('No email for user');
@@ -641,10 +721,11 @@ class ChatService {
         .doc(threadId)
         .collection('messages')
         .add({
-          'type': 'text',
+          'type': imageUrl != null ? 'image' : 'text',
           'text': message,
           'senderEmail': currentUser.email,
           'timestamp': FieldValue.serverTimestamp(),
+          if (imageUrl != null) 'imageUrl': imageUrl,
           'reactions': const <String>[],
         });
   }
@@ -1243,6 +1324,7 @@ class ChatService {
       'groupName': groupName,
       'text': data['text'] ?? '',
       'imageUrl': data['imageUrl'],
+      'unsent': data['unsent'] == true,
       'senderEmail': data['senderEmail'] ?? '',
       'timestamp': data['timestamp'],
     };
@@ -1269,6 +1351,7 @@ class ChatService {
       'otherEmail': otherEmail,
       'text': data['text'] ?? '',
       'imageUrl': data['imageUrl'],
+      'unsent': data['unsent'] == true,
       'senderEmail': data['senderEmail'] ?? '',
       'timestamp': data['timestamp'],
     };

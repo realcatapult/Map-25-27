@@ -1,7 +1,11 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:login_ui/components/image_source_sheet.dart';
 import 'package:login_ui/components/message_reactions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:login_ui/services/chat_service.dart';
@@ -32,7 +36,9 @@ class _DirectMessagePageState extends State<DirectMessagePage> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final AiService _aiService = AiService();
+  final ImagePicker _imagePicker = ImagePicker();
   bool _jarvisThinking = false;
+  bool _isSendingImage = false;
 
   /// The other person's receipt, so we can mark our own messages seen.
   DateTime? _theirLastRead;
@@ -107,21 +113,94 @@ class _DirectMessagePageState extends State<DirectMessagePage> {
       // Your own line posts first either way, so the thread reads in order.
       final question = Jarvis.extractQuestion(text);
       if (question != null) _handleJarvis(question);
-      Future.delayed(const Duration(milliseconds: 100), () {
-        if (_scrollController.hasClients) {
-          _scrollController.animateTo(
-            // reverse:true puts the newest message at offset 0.
-            0,
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeOut,
-          );
-        }
-      });
+      _scrollToLatest();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Error sending message: $e')));
+      }
+    }
+  }
+
+  void _scrollToLatest() {
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (_scrollController.hasClients) {
+        // reverse:true puts the newest message at offset 0.
+        _scrollController.animateTo(
+          0,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  Future<void> _sendImage() async {
+    final source = await showImageSourceSheet(context);
+    if (source == null) return;
+
+    try {
+      final image = await _imagePicker.pickImage(
+        source: source,
+        maxWidth: 1600,
+        maxHeight: 1600,
+        imageQuality: 80,
+      );
+      if (image == null) return;
+      setState(() => _isSendingImage = true);
+
+      final imageUrl = await _chatService.uploadDirectMessageImage(
+        File(image.path),
+        widget.threadId,
+      );
+      // Anything typed goes along as the caption.
+      final caption = _messageController.text.trim();
+      await _chatService.sendDirectMessage(
+        widget.threadId,
+        caption,
+        imageUrl: imageUrl,
+      );
+      _messageController.clear();
+      _scrollToLatest();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error sending image: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _isSendingImage = false);
+    }
+  }
+
+  Future<void> _unsend(String messageId) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Unsend message?'),
+        content: const Text('This removes the message for both of you.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Unsend'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+
+    try {
+      await _chatService.unsendDirectMessage(widget.threadId, messageId);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Could not unsend: $e')));
       }
     }
   }
@@ -242,11 +321,43 @@ class _DirectMessagePageState extends State<DirectMessagePage> {
                         final message = doc.data() as Map<String, dynamic>;
                         final messageId = doc.id;
                         final text = message['text'] ?? '';
+                        final imageUrl = message['imageUrl'] as String?;
                         final senderEmail = message['senderEmail'] ?? '';
                         final isJarvis = Jarvis.isJarvis(senderEmail);
                         final isMe = senderEmail == currentUserEmail;
                         final timestamp = (message['timestamp'] as Timestamp?)
                             ?.toDate();
+
+                        if (message['unsent'] == true) {
+                          return Align(
+                            alignment: isMe
+                                ? Alignment.centerRight
+                                : Alignment.centerLeft,
+                            child: Container(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 8,
+                              ),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: colorScheme.outlineVariant,
+                                ),
+                              ),
+                              child: Text(
+                                isMe
+                                    ? 'You unsent a message'
+                                    : '${ProfileCache.instance.nameFor(senderEmail)} unsent a message',
+                                style: TextStyle(
+                                  color: colorScheme.onSurfaceVariant,
+                                  fontSize: 13,
+                                  fontStyle: FontStyle.italic,
+                                ),
+                              ),
+                            ),
+                          );
+                        }
                         final reactionKeys = List<String>.from(
                           message['reactions'] ?? const <String>[],
                         );
@@ -289,6 +400,15 @@ class _DirectMessagePageState extends State<DirectMessagePage> {
                             currentUserEmail: currentUserEmail ?? '',
                             onToggle: toggle,
                             alignEnd: isMe,
+                            actions: [
+                              if (isMe)
+                                MessageAction(
+                                  icon: Icons.undo,
+                                  label: 'Unsend',
+                                  destructive: true,
+                                  onTap: () => _unsend(messageId),
+                                ),
+                            ],
                             // A Jarvis turn is labelled, so a bot reply is
                             // never mistaken for the other person speaking.
                             child: Column(
@@ -338,15 +458,52 @@ class _DirectMessagePageState extends State<DirectMessagePage> {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      Text(
-                                        text,
-                                        style: TextStyle(
-                                          color: isMe
-                                              ? colorScheme.onPrimary
-                                              : colorScheme.onSurface,
-                                          fontSize: 14,
+                                      if (imageUrl != null) ...[
+                                        GestureDetector(
+                                          onTap: () => showDialog(
+                                            context: context,
+                                            builder: (context) => Dialog(
+                                              child: InteractiveViewer(
+                                                child: CachedNetworkImage(
+                                                  imageUrl: imageUrl,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                          child: ClipRRect(
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
+                                            child: CachedNetworkImage(
+                                              imageUrl: imageUrl,
+                                              width: 200,
+                                              fit: BoxFit.cover,
+                                              memCacheWidth: 600,
+                                              placeholder: (context, url) =>
+                                                  const SizedBox(
+                                                    width: 200,
+                                                    height: 200,
+                                                    child: Center(
+                                                      child:
+                                                          CircularProgressIndicator(),
+                                                    ),
+                                                  ),
+                                            ),
+                                          ),
                                         ),
-                                      ),
+                                        if (text.isNotEmpty)
+                                          const SizedBox(height: 8),
+                                      ],
+                                      if (text.isNotEmpty)
+                                        Text(
+                                          text,
+                                          style: TextStyle(
+                                            color: isMe
+                                                ? colorScheme.onPrimary
+                                                : colorScheme.onSurface,
+                                            fontSize: 14,
+                                          ),
+                                        ),
                                       if (timestamp != null) ...[
                                         const SizedBox(height: 4),
                                         Row(
@@ -416,6 +573,23 @@ class _DirectMessagePageState extends State<DirectMessagePage> {
                 ),
                 child: Row(
                   children: [
+                    _isSendingImage
+                        ? const Padding(
+                            padding: EdgeInsets.all(12),
+                            child: SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          )
+                        : IconButton(
+                            icon: Icon(
+                              Icons.add_photo_alternate_outlined,
+                              color: colorScheme.primary,
+                            ),
+                            tooltip: 'Send a picture',
+                            onPressed: _sendImage,
+                          ),
                     Expanded(
                       child: TextField(
                         controller: _messageController,
