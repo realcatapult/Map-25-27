@@ -2,7 +2,7 @@
 
 GroupApp is a Flutter app for student groups/clubs with authentication, group chat, direct messages, calendar events, club discovery, personalized recommendations, and AI support chat. Programmed in ![Dart](https://shields.io)
 
-
+https://img.shields.io/badge/Dart-0175C2?style=for-the-badge&logo=dart&logoColor=white https://img.shields.io/badge/Flutter-02569B?style=for-the-badge&logo=flutter&logoColor=white https://img.shields.io/badge/firebase-ffca28?style=for-the-badge&logo=firebase&logoColor=black
 
 ## Current Status
 
